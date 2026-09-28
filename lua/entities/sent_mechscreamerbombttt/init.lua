@@ -1,77 +1,74 @@
 
 AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
-include('shared.lua')
+include("shared.lua")
 
-ENT.ActivateDel = CurTime()
-ENT.MissileTime = CurTime() + 5	
-ENT.DestPos = NULL
-ENT.Activated = false
-ENT.ScreamSound = NULL
-ENT.SoundDel = CurTime()
-ENT.TimeAdd = 5
-ENT.ActiveTime = CurTime()
-ENT.StartTime = CurTime()
+ENT.ActivateDel  = CurTime()
+ENT.MissileTime  = CurTime() + 5
+ENT.DestPos      = NULL
+ENT.Activated    = false
+ENT.ScreamSound  = NULL
+ENT.SoundDel     = CurTime()
+ENT.TimeAdd      = 5
+ENT.ActiveTime   = CurTime()
+ENT.StartTime    = CurTime()
 ENT.ActiveEffect = NULL
-ENT.TeslaEff = NULL
-ENT.TeslaDel = CurTime()
+ENT.TeslaEff     = NULL
+ENT.TeslaDel     = CurTime()
 
 function ENT:SpawnFunction( ply, tr )
---------Spawning the entity and getting some sounds i use.   
- 	if ( !tr.Hit ) then return end 
- 	 
- 	local SpawnPos = tr.HitPos + tr.HitNormal * 10 
- 	 
- 	local ent = ents.Create( "sent_mechscreamerbombTTT" )
-	ent:SetPos( SpawnPos ) 
- 	ent:Spawn()
- 	ent:Activate() 
- 	ent.Owner = ply
-	
-	self.DestPos = self.Entity.FollowPos	
-	self.ActivateDel = self.Entity.ActivateDel
-	return ent 
- 	 
+--------Spawning the entity and getting some sounds i use.
+	if not tr.Hit then return end
+
+	local SpawnPos = tr.HitPos + tr.HitNormal * 10
+
+	local ent = ents.Create( "sent_mechscreamerbombTTT" )
+	ent:SetPos( SpawnPos )
+	ent:Spawn()
+	ent:Activate()
+	ent.Owner = ply
+
+	self.DestPos = self.FollowPos
+	self.ActivateDel = self.ActivateDel
+	return ent
 end
 
 function ENT:Initialize()
+	self:SetModel("models/props_junk/PopCan01a.mdl")
+	self:SetColor(255, 255, 255, 0)
+	self:SetOwner(self:GetOwner())
+	self:PhysicsInit(SOLID_VPHYSICS)
+	self:SetMoveType(MOVETYPE_VPHYSICS)
+	self:SetSolid(SOLID_VPHYSICS)
 
-	self.Entity:SetModel("models/props_junk/PopCan01a.mdl")
-	self.Entity:SetColor(255, 255, 255, 0)
-	self.Entity:SetOwner(self.Owner)
-	self.Entity:PhysicsInit(SOLID_VPHYSICS)
-	self.Entity:SetMoveType(MOVETYPE_VPHYSICS)
-	self.Entity:SetSolid(SOLID_VPHYSICS)
-
-    local phys = self.Entity:GetPhysicsObject()
+    local phys = self:GetPhysicsObject()
 	if(phys:IsValid()) then phys:Wake() end
 	phys:EnableGravity(false)
-	phys:EnableDrag( false )	
-		
-	self.Trail = util.SpriteTrail(self.Entity, 0, Color(255,0,0,255), false, 4, 0, 3, 1/(15+1)*0.5, "trails/laser.vmt")
+	phys:EnableDrag( false )
+
+	self.Trail = util.SpriteTrail(self, 0, Color(255,0,0,255), false, 4, 0, 3, 1/(15+1)*0.5, "trails/laser.vmt")
 	self.MissileTime = CurTime() + 5
-	
-	self.DestPos = self.Entity.FollowPos
-	self.ActivateDel = self.Entity.ActivateDel	
-	
+
+	self.DestPos = self.FollowPos
+	self.ActivateDel = self.ActivateDel
+
 	local redSprite = ents.Create("env_sprite");
-	redSprite:SetPos( self.Entity:GetPos() );
-	redSprite:SetKeyValue( "renderfx", "14" )	
+	redSprite:SetPos( self:GetPos() );
+	redSprite:SetKeyValue( "renderfx", "14" )
 	redSprite:SetKeyValue( "model", "sprites/glow1.vmt")
 	redSprite:SetKeyValue( "scale","1")
 	redSprite:SetKeyValue( "spawnflags","1")
 	redSprite:SetKeyValue( "angles","0 0 0")
 	redSprite:SetKeyValue( "rendermode","9")
 	redSprite:SetKeyValue( "renderamt","255")
-	redSprite:SetKeyValue( "rendercolor", "255 0 0" )				
-	redSprite:Spawn()	
-	redSprite:SetParent( self.Entity )	
-	
-	self.ScreamSound = CreateSound(self.Entity,"combine mech/ScreamIdle.wav")
+	redSprite:SetKeyValue( "rendercolor", "255 0 0" )
+	redSprite:Spawn()
+	redSprite:SetParent( self )
+
+	self.ScreamSound = CreateSound(self,"combine mech/ScreamIdle.wav")
 	self.ScreamSound:Play()
 	self.SoundDel = CurTime() + 2
-	
-	
+
 	self.TeslaEff = ents.Create( "point_tesla" )
 	self.TeslaEff:SetKeyValue( "targetname", "teslapoint" )
 	self.TeslaEff:SetKeyValue( "texture" ,"sprites/flare1.vmt" )
@@ -85,14 +82,14 @@ function ENT:Initialize()
 	self.TeslaEff:SetKeyValue( "lifetime_max", "0.1" )
 	self.TeslaEff:SetKeyValue( "interval_min", "0.1" )
 	self.TeslaEff:SetKeyValue( "interval_max" ,"0.25" )
-	self.TeslaEff:SetPos( self.Entity:GetPos() )
+	self.TeslaEff:SetPos( self:GetPos() )
 	self.TeslaEff:Spawn()
-	self.TeslaEff:SetParent( self.Entity )
-	self.TeslaEff:Fire( "DoSpark","",0 )	
+	self.TeslaEff:SetParent( self )
+	self.TeslaEff:Fire( "DoSpark","",0 )
 end
 
 -------------------------------------------PHYS COLLIDE
-function ENT:PhysicsCollide( data, phys ) 
+function ENT:PhysicsCollide(data, phys)
 	ent = data.HitEntity
 
 	if self.Activated == false && self.ActivateDel < CurTime() then
@@ -101,40 +98,36 @@ function ENT:PhysicsCollide( data, phys )
 		self.StartTime = CurTime()
 
 		self.ActiveEffect = ents.Create("env_rotorwash_emitter")
-		self.ActiveEffect:SetPos(self.Entity:GetPos())
-		self.ActiveEffect:SetParent(self.Entity)
-		self.ActiveEffect:Activate()	
+		self.ActiveEffect:SetPos(self:GetPos())
+		self.ActiveEffect:SetParent(self)
+		self.ActiveEffect:Activate()
 
 		local effectdata = EffectData()
-		effectdata:SetEntity(self.Entity)
+		effectdata:SetEntity(self)
 		util.Effect("mech_ScreamerEff",effectdata)
-		
-		
+
 		self.TeslaEff:SetKeyValue( "m_flRadius" ,"300" )
-		self.Entity:EmitSound("combine mech/ScreamerCountDown.wav")			
+		self:EmitSound("combine mech/ScreamerCountDown.wav")
 	end
-	
 end
 
 -------------------------------------------PHYS UPDATE
-function ENT:PhysicsUpdate( physics )
-
+function ENT:PhysicsUpdate(physics)
 	--Sparks, yay!
 	if self.TeslaDel < CurTime() then
 		self.TeslaDel = CurTime() + 0.1
-		self.TeslaEff:Fire( "DoSpark","",0 )	
+		self.TeslaEff:Fire( "DoSpark","",0 )
 	end
-	
-	
+
 	if self.target != NULL then
 		self.DestPos = self.target:GetPos()
 	end
 
 	if self.ActivateDel < CurTime() then
-		local pos = self.Entity:GetPos()
+		local pos = self:GetPos()
 		local dir = (self.DestPos - pos):GetNormalized()
-	
-		self.Entity:GetPhysicsObject():ApplyForceCenter(dir * 50)
+
+		self:GetPhysicsObject():ApplyForceCenter(dir * 50)
 	end
 
 	if self.SoundDel < CurTime() then
@@ -142,109 +135,101 @@ function ENT:PhysicsUpdate( physics )
 		self.ScreamSound:Stop()
 		self.ScreamSound:Play()
 	end
-	
-	local pitch = self.Entity:GetVelocity():Length()
-	pitch = pitch / 10
-	local pitch = math.Clamp( pitch, 50, 200 )
-	
-	self.ScreamSound:ChangePitch(pitch,0)
-	
 
-	local dist = self.DestPos:Distance(self.Entity:GetPos())
-	
+	local pitch = self:GetVelocity():Length() / 10
+	pitch = math.Clamp(pitch, 50, 200)
+
+	self.ScreamSound:ChangePitch(pitch, 0)
+
+	local dist = self.DestPos:Distance(self:GetPos())
+
 	if dist < 100 && self.Activated == false then
 		self.Activated = true
 		self.ActiveTime = CurTime() + self.TimeAdd
-		self.StartTime = CurTime()	
-		
+		self.StartTime = CurTime()
+
 		self.ActiveEffect = ents.Create("env_rotorwash_emitter")
-		self.ActiveEffect:SetPos(self.Entity:GetPos())
-		self.ActiveEffect:SetParent(self.Entity)
-		self.ActiveEffect:Activate()		
+		self.ActiveEffect:SetPos(self:GetPos())
+		self.ActiveEffect:SetParent(self)
+		self.ActiveEffect:Activate()
 
 		local effectdata = EffectData()
-		effectdata:SetEntity(self.Entity)
-		util.Effect("mech_ScreamerEff",effectdata)	
-		self.TeslaEff:SetKeyValue( "m_flRadius" ,"300" )		
-		self.Entity:EmitSound("combine mech/ScreamerCountDown.wav")			
-	end	
-		
+		effectdata:SetEntity(self)
+		util.Effect("mech_ScreamerEff",effectdata)
+		self.TeslaEff:SetKeyValue( "m_flRadius" ,"300" )
+		self:EmitSound("combine mech/ScreamerCountDown.wav")
+	end
+
 	if self.Activated == true && self.ActiveTime > CurTime() then
-	
+
 		local percent = (CurTime() - self.StartTime) / self.TimeAdd
-	
-	self.Entity:GetPhysicsObject():SetVelocity(self.Entity:GetPhysicsObject():GetVelocity() * 0.1)
-	
+
+	self:GetPhysicsObject():SetVelocity(self:GetPhysicsObject():GetVelocity() * 0.1)
+
 		local maxDist = 300
-		for k, v in pairs(ents.FindInSphere( self.Entity:GetPos(), maxDist )) do
+		for k, v in pairs(ents.FindInSphere( self:GetPos(), maxDist )) do
 
 			local phys = v:GetPhysicsObject()
 			local useEff = false
-			
+
 			if phys && phys:IsValid() then
-				local dir = (self.Entity:GetPos() - v:GetPos()):GetNormalized()
-				local dist = self.Entity:GetPos():Distance(v:GetPos())
+				local dir = (self:GetPos() - v:GetPos()):GetNormalized()
+				local dist = self:GetPos():Distance(v:GetPos())
 				local force = dist / maxDist
 				phys:ApplyForceCenter(dir * force * percent * phys:GetMass() * 100 )
 				useEff = true
 			end
-			
+
 			if v:IsPlayer() then
-				local dir = (self.Entity:GetPos() - v:GetPos()):GetNormalized()
-				local dist = self.Entity:GetPos():Distance(v:GetPos())
+				local dir = (self:GetPos() - v:GetPos()):GetNormalized()
+				local dist = self:GetPos():Distance(v:GetPos())
 				local force = dist / maxDist
-				v:SetVelocity(dir * force * percent * 200 )	
-				useEff = true				
+				v:SetVelocity(dir * force * percent * 200 )
+				useEff = true
 			elseif v:IsNPC() then
 				local hp = v:Health() - 1
-				v:Fire("sethealth", ""..hp.."", 0)	
-				useEff = true				
+				v:Fire("sethealth", ""..hp.."", 0)
+				useEff = true
 			end
-			
-			
+
 			if useEff == true then
 				local effectdata = EffectData()
 				effectdata:SetEntity( v )
-				effectdata:SetStart( self.Entity:GetPos() )
+				effectdata:SetStart( self:GetPos() )
 				effectdata:SetOrigin( v:GetPos() )
 				effectdata:SetAngles( v:GetAngles() )
 				effectdata:SetScale( 15 )
 				effectdata:SetMagnitude( 15 )
-				util.Effect( "TeslaHitBoxes", effectdata )			
+				util.Effect( "TeslaHitBoxes", effectdata )
 			end
-			
-			
 		end
-	
+
 	elseif self.Activated == true && self.ActiveTime < CurTime() then
-		self.Entity:Remove()
+		self:Remove()
 	end
-	
-	
 end
 -------------------------------------------THINK
 function ENT:Think()
-
-	self.Entity:GetPhysicsObject():Wake()
-	
+	self:GetPhysicsObject():Wake()
 end
+
 -------------------------------------------REMOVE
 function ENT:OnRemove()
 	self.ScreamSound:Stop()
 	self.ActiveEffect:Remove()
 	self.TeslaEff:Remove()
-	
+
 	self.ExplodeOnce = 1
 	local expl = ents.Create("env_explosion")
 	expl:SetKeyValue("spawnflags",128)
-	expl:SetPos(self.Entity:GetPos())
+	expl:SetPos(self:GetPos())
 	expl:Spawn()
 	expl:Fire("explode","",0)
 
-	util.BlastDamage( self.Entity, self.Entity, self.Entity:GetPos(), 300, 200)	
+	util.BlastDamage( self, self, self:GetPos(), 300, 200)
 end
 
 function ENT:Activate()
-	
+
 end
 

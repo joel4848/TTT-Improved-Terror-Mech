@@ -7,14 +7,14 @@ function EFFECT:Init( data )
 	self.Mul = 1
 	self.UpdateSpeedDel = CurTime()
 	self.Speed = 1
-end 
+end
 
 
 
 function EFFECT:Think()
 
-	if not self.ent or not(self.ent:IsValid()) then 
-		return false 
+	if not self.ent or not(self.ent:IsValid()) then
+		return false
 	end
 
 	if self.Refract > 10 then
@@ -22,29 +22,29 @@ function EFFECT:Think()
 	elseif self.Refract < -10 then
 		self.Mul = 1
 	end
-	
+
 	if self.UpdateSpeedDel < CurTime() then
 		self.UpdateSpeedDel = CurTime() + 0.2
 		self.Speed = self.ent:GetVelocity():Length()
 		self.Speed = self.Speed / 2000
-		
+
 		if self.Speed < 0.1 then
 			self.Speed = 0.1
 		end
-		
-	end
-	
-	self.Refract = self.Refract + (self.Speed * self.Mul)
-	
 
-	
+	end
+
+	self.Refract = self.Refract + (self.Speed * self.Mul)
+
+
+
 	return true
-end 
+end
 
 function EFFECT:Render()
 
 	RefTex:SetFloat( "$refractamount", math.sin( self.Refract * math.pi ) * 0.5 )
 	render.SetMaterial( RefTex )
 	render.UpdateRefractTexture()
-	render.DrawSprite( self.ent:GetPos(), 400, 400 )	
+	render.DrawSprite( self.ent:GetPos(), 400, 400 )
 end

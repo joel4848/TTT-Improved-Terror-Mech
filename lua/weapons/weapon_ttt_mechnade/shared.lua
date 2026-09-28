@@ -37,8 +37,8 @@ if CLIENT then
 	end
    -- Text shown in the equip menu
 	SWEP.EquipMenuData = {
-   
-   
+
+
 		type = "Weapon",
 		desc = "Will Spawn A Mech Make Sure There Is Room."
    };
@@ -68,10 +68,10 @@ function SWEP:Initialize()
 end
 
 function SWEP:OnRemove()
-   if CLIENT and IsValid(self.Owner) and self.Owner == LocalPlayer() and self.Owner:Alive() then
+   if CLIENT and IsValid(self:GetOwner()) and self:GetOwner() == LocalPlayer() and self:GetOwner():Alive() then
       RunConsoleCommand("use", "weapon_ttt_unarmed")
    end
-   
+
    if CLIENT then
    self.ModelEntity:Remove()
    end

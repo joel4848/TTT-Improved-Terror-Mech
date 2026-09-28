@@ -1,15 +1,10 @@
-
-
 concommand.Add( "SetMechPlayerWepKey", function( ply, com, args )
-
 	local key = args[1]
 	local setKey = -1
 	ply.mechKey = args[1]
-	
-	
+
 	--I just hate doing this but i haven't found any String to int func :[
-	
-	
+
 	if key == "0.00" then
 		setKey = 0
 	elseif key == "1.00" then
@@ -31,10 +26,8 @@ concommand.Add( "SetMechPlayerWepKey", function( ply, com, args )
 	elseif key == "9.00" then
 		setKey = 9
 	elseif key == "10.00" then
-		setKey = 10		
+		setKey = 10
 	end
-	
-	ply.mechKey = setKey
-	
 
+	ply.mechKey = setKey
 end)

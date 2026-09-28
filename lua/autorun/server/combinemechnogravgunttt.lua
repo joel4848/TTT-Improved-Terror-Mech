@@ -6,28 +6,28 @@ hook.Add("GravGunPickupAllowed", "CombineMech GravGunPickupAllowed", function( p
 	if ent != NULL && ent:IsValid() then
 		if ent:GetClass() == "prop_ragdoll" then
 			if ent:GetModel() == "models/cm/cmbnmch.mdl" then
-				return false 
+				return false
 			end
 		end
-		
+
 		if ent:GetClass() == "sent_combinemechTTT" or ent:GetClass() == "sent_combinemechTTTuser" then
-			return false 			
+			return false
 		end
 	end
-	return true 
+	return true
 end)
 
 hook.Add("GravGunPunt", "CombineMech GravGunPunt", function( ply, ent )
 	if ent != NULL && ent:IsValid() then
 		if ent:GetClass() == "prop_ragdoll" then
 			if ent:GetModel() == "models/cm/cmbnmch.mdl" then
-				return false 
+				return false
 			end
 		end
-		
+
 		if ent:GetClass() == "sent_combinemechTTT" or ent:GetClass() == "sent_combinemechTTTuser" then
-			return false 			
+			return false
 		end
 	end
-	return true 
+	return true
 end)

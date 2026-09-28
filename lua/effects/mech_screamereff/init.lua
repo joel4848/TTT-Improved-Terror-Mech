@@ -8,25 +8,25 @@ function EFFECT:Init( data )
 	self.Refract = 0
 	self.addTime = 5
 	self.startTime = CurTime()
-	
-end 
+
+end
 
 function EFFECT:Think()
 
-	if not self.ent or not(self.ent:IsValid()) then 
-		return false 
+	if not self.ent or not(self.ent:IsValid()) then
+		return false
 	end
-	
+
 	self.Refract = (CurTime() - self.startTime) / self.addTime
 	self.Refract = self.Refract * -1
-	
+
 	return true
-end 
+end
 
 function EFFECT:Render()
 
 	RefTex:SetFloat( "$refractamount", math.sin( self.Refract * math.pi ) * 0.5 )
 	render.SetMaterial( RefTex )
 	render.UpdateRefractTexture()
-	render.DrawSprite( self.ent:GetPos(), 800, 800 )	
+	render.DrawSprite( self.ent:GetPos(), 800, 800 )
 end

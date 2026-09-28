@@ -5,9 +5,9 @@
 --Scripts
 resource.AddFile( "scripts/vehicles/MechSeat.txt" )
 
-AddCSLuaFile("autorun/client/combinemech3rdpersonTTT.lua")  
-AddCSLuaFile("autorun/client/combinemehchudTTT.lua")  
-AddCSLuaFile("autorun/client/setwepkeyTTT.lua") 
+AddCSLuaFile("autorun/client/combinemech3rdpersonTTT.lua")
+AddCSLuaFile("autorun/client/combinemehchudTTT.lua")
+AddCSLuaFile("autorun/client/setwepkeyTTT.lua")
 --Sounds
 resource.AddFile( "sound/combine mech/servoMove.mp3" )
 resource.AddFile( "sound/combine mech/ShieldUp.wav" )

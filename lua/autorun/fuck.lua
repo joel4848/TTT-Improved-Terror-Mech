@@ -24,7 +24,7 @@ end)
 
 timer.Create("mechhealthyesttt", 0.1,0,
 function()
- 
+
 
 hook.Add( "EntityTakeDamage", "EntityTakeDamage", function( target, dmginfo )
 for k, v in pairs( ents.FindByClass( "prop_*" ) ) do
@@ -34,7 +34,7 @@ if dmginfo:IsBulletDamage() then
 if v == target then
 v:SetHealth(v:Health() - dmginfo:GetDamage())
 end
-if v:Health() <= 0 then 
+if v:Health() <= 0 then
 local mechpos = v:GetPos()
 local explode = ents.Create( "env_explosion" ) //creates the explosion
 	explode:SetPos(mechpos)
