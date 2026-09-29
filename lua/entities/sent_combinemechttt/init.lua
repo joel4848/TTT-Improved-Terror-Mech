@@ -470,6 +470,13 @@ function ENT:PhysicsUpdate(physics)
 				end
 			end
 
+			-- Forget grav probe if it no longer exists
+			if self.GravProbeSpawned == true && not IsValid(self.TempMissile) then
+				self.GravProbeSpawned = false
+				self.TempMissile = nil
+				self.GravProbeDel = CurTime() + 2
+			end
+
 			--Grav probe exploit fix
 			if self.GravProbeSpawned == true && self.wepType == 2 && self.User:KeyDown( IN_ATTACK ) then
 				local tracedata = {}
@@ -479,23 +486,19 @@ function ENT:PhysicsUpdate(physics)
 				local trace = util.TraceLine(tracedata)
 
 				self.TempMissile.DestPos = trace.HitPos
-				self.TempMissile:GetPhysicsObject():SetVelocity(self.TempMissile:GetVelocity() * 0.9)
+				local probePhys = self.TempMissile:GetPhysicsObject()
+				-- This code needs so many 'IsValid' checks dammit Jensson
+				if IsValid(probePhys) then
+					probePhys:SetVelocity(self.TempMissile:GetVelocity() * 0.9)
+				end
 			elseif (not(self.User:KeyDown( IN_ATTACK )) or self.wepType ~= 3) && self.GravProbeSpawned == true then
-				self.GravProbeSpawned = false
-				self.TempMissile.DestPos = NULL
-				self.TempMissile.ArmTime = CurTime() + 2
-				self.GravProbeDel = CurTime() + 4
-				self.TempMissile:GetPhysicsObjectNum(0):ApplyForceCenter(self.User:GetAimVector() * 1000)
+				self:ReleaseGravProbe(4)
 				self:EmitSound("weapons/physcannon/superphys_small_zap"..math.random(1,4)..".wav",75,math.random(80,120))
 			end
 
 			if self.User:KeyDown( IN_ATTACK ) && self.flyHeight <= 0 && self.keepUpRightCon ~= NULL && self.GravProbeSpawned == false && self.UseMissileStormDel < CurTime() then
 				if self.GravProbeSpawned == true then
-					self.GravProbeSpawned = false
-					self.TempMissile.DestPos = NULL
-					self.TempMissile.ArmTime = CurTime() + 2
-					self.GravProbeDel = CurTime() + 2
-					self.TempMissile:GetPhysicsObjectNum(0):ApplyForceCenter(self.User:GetAimVector() * 1000)
+					self:ReleaseGravProbe(2)
 				end
 				--I reallly miss "switch case" in these situations
 				if self.wepType == 1 && self.MachineGunDel < CurTime() && self.GunHeatDel < CurTime() then
@@ -587,11 +590,7 @@ function ENT:PhysicsUpdate(physics)
 
 			--Launching the Grav Probe when we release the primary fire button
 			if self.GravProbeSpawned == true then
-				self.GravProbeSpawned = false
-				self.TempMissile.DestPos = NULL
-				self.TempMissile.ArmTime = CurTime() + 2
-				self.GravProbeDel = CurTime() + 2
-				self.TempMissile:GetPhysicsObjectNum(0):ApplyForceCenter(self.User:GetAimVector() * 1000)
+				self:ReleaseGravProbe(2)
 			end
 		end
 
@@ -1030,31 +1029,41 @@ function ENT:Think()
 end
 -------------------------------------------ON REMOVE
 function ENT:OnRemove()
-	--Remove the mech ragdoll if it isn't already removed
-	if self.mech && self.mech ~= NULL && self.mech ~= nil then
+	-- See?
+	if IsValid(self.mech) then
 		self.mech:Remove()
 	end
 
-	self.UserSeat:Remove()
+	-- So
+	if IsValid(self.UserSeat) then
+		self.UserSeat:Remove()
+	end
 
-	--Removing the saw blade
-	self.keepUpRightProp:Remove()
+	-- many
+	if IsValid(self.keepUpRightProp) then
+		self.keepUpRightProp:Remove()
+	end
 
-	--Removing the control station
-	if self.MechUserEnt && self.MechUserEnt ~= NULL && self.MechUserEnt ~= nil then
+	-- 'Is
+	if IsValid(self.MechUserEnt) then
 		self.MechUserEnt:Remove()
 	end
 
-	--Removing the npc targets
-	if self.NPCTarget ~= NULL then
+	-- Valid'
+	if IsValid(self.NPCTarget) then
 		self.NPCTarget:Remove()
-		self.NPCTarget = NULL
-		self.NPCTarget2:Remove()
-		self.NPCTarget2 = NULL
 	end
+	self.NPCTarget = nil
 
-	--Stopping the jet sound if the mech were flying when it was removed
-	self.JetSound:Stop()
+	-- checks!
+	if IsValid(self.NPCTarget2) then
+		self.NPCTarget2:Remove()
+	end
+	self.NPCTarget2 = nil
+
+	if self.JetSound then
+		self.JetSound:Stop()
+	end
 end
 
 -----------------------------------------------------------------------MISC FUNCS
@@ -1449,72 +1458,97 @@ function ENT:DirectHead()
 	end
 end
 
+-- Check whether the entity is part of the mech
+function ENT:IsMechPart(v)
+	if v == self or v == self.mech or v == self.keepUpRightProp or v == self.MechUserEnt or v == self.UserSeat or v == self.TempMissile or v == self.ShieldSprite or v == self.NPCTarget or v == self.NPCTarget2 then
+		return true
+	end
+
+	if v.IsMechProp then
+		return true
+	end
+
+	-- Check the parent if we get this far
+	local parent = v:GetParent()
+	if IsValid(parent) && parent ~= v then
+		return self:IsMechPart(parent)
+	end
+
+	return false
+end
+
 --All shield thingys happens here
 function ENT:Shield()
 	--Energy must be above 0
-	if self.Energy > 0 then
-		if not self.mech or self.mech == NULL or self.mech == nil then return false end
-			--Getting all ents
-			for k, v in pairs(ents.FindInSphere( self:GetPos(), 150 )) do
-				--These things are hidden in the player
-				--We don't want the shield to react to them
-				if not( v:IsPlayer()) && v:IsValid() && not(v:IsWeapon()) && not(string.find(v:GetClass(), "predicted_viewmodel")) && not(string.find(v:GetClass(), "physgun_beam")) then
+	if self.Energy <= 0 then return end
+	if not IsValid(self.mech) then return false end
 
-				--The shield should ignore it's own parts
-				if v ~= self.keepUpRightProp && v ~=self.mech && v ~= self.MechUserEnt && v ~= self.Seat && v ~= self.TempMissile then
-					local vel = v:GetVelocity():Length()
-					local dir1 = v:GetVelocity():GetNormalized()
-					local dir = (v:GetPos() - self:GetPos()):GetNormalized()
-					local dot = dir:Dot(dir1)
+	--Getting all ents
+	for k, v in pairs(ents.FindInSphere( self:GetPos(), 150 )) do
+		--These things are hidden in the player
+		--We don't want the shield to react to them
+		if IsValid(v) && not( v:IsPlayer()) && not(v:IsWeapon()) && not(string.find(v:GetClass(), "predicted_viewmodel")) && not(string.find(v:GetClass(), "physgun_beam")) then
 
-					if dot < 0 && vel > 500 then
-						--Some ents that aren't phys objects needs to be handles separatly
-						if v:GetClass()=="rpg_missile" then
-							self.Energy = self.Energy - 20
-							v:SetLocalVelocity(dir * vel * 1000 + Vector(0,0,10000))
-							v:SetAngles(dir:Angle())
-							v:SetHealth(0)
+			--The shield should ignore it's own parts
+			if not self:IsMechPart(v) then
+				local vel = v:GetVelocity():Length()
+				local dir1 = v:GetVelocity():GetNormalized()
+				local dir = (v:GetPos() - self:GetPos()):GetNormalized()
+				local dot = dir:Dot(dir1)
 
-							local bul = {
-								Num = 1,
-								Src = v:GetPos(),
-								Dir = Vector(0,0,0),
-								Spread = Vector(0,0,0),
-								Tracer = 0,
-								Force = 1,
-								Damage = 100
-							}
-							self:FireBullets(bul)
-						elseif v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette" or v:GetClass() == "grenade_spit" then
+				if dot < 0 && vel > 500 then
+					--Some ents that aren't phys objects needs to be handles separatly
+					if v:GetClass()=="rpg_missile" then
+						self.Energy = self.Energy - 20
+						v:SetLocalVelocity(dir * vel * 1000 + Vector(0,0,10000))
+						v:SetAngles(dir:Angle())
+						v:SetHealth(0)
 
-							if v:GetClass() == "crossbow_bolt" then
-								self.Energy = self.Energy - 10
-							else
-								self.Energy = self.Energy - 3
-							end
-
-							if v:GetClass() == "grenade_spit" then
-								v:SetLocalVelocity(dir * vel)
-							else
-								v:SetLocalVelocity(dir * vel * 1000)
-							end
-						elseif v:GetClass() == "grenade_ar2" then
-							self.Energy = self.Energy - 5
-							v:SetLocalVelocity(dir * vel )
-						elseif  string.find(v:GetClass(), "missile") then
-							v:SetAngles(dir:Angle())
-							v.MissileTime = 0
-							v:GetPhysicsObject():SetVelocity(dir * vel * 0.5)
+						local bul = {
+							Num = 1,
+							Src = v:GetPos(),
+							Dir = Vector(0,0,0),
+							Spread = Vector(0,0,0),
+							Tracer = 0,
+							Force = 1,
+							Damage = 100
+						}
+						self:FireBullets(bul)
+					elseif v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette" or v:GetClass() == "grenade_spit" then
+						if v:GetClass() == "crossbow_bolt" then
 							self.Energy = self.Energy - 10
 						else
-							local phys = v:GetPhysicsObject()
-							if phys ~= NULL && phys ~= nil && phys:IsValid() then
-								phys:SetVelocity(dir * vel)
-								self.Energy = self.Energy - (phys:GetMass() / 5)
-							end
+							self.Energy = self.Energy - 3
 						end
 
-						--The shield effect
+						if v:GetClass() == "grenade_spit" then
+							v:SetLocalVelocity(dir * vel)
+						else
+							v:SetLocalVelocity(dir * vel * 1000)
+						end
+					elseif v:GetClass() == "grenade_ar2" then
+						self.Energy = self.Energy - 5
+						v:SetLocalVelocity(dir * vel )
+					elseif  string.find(v:GetClass(), "missile") then
+						v:SetAngles(dir:Angle())
+						v.MissileTime = 0
+						local missilePhys = v:GetPhysicsObject()
+						if IsValid(missilePhys) then
+							missilePhys:SetVelocity(dir * vel * 0.5)
+						end
+						self.Energy = self.Energy - 10
+					else
+						local phys = v:GetPhysicsObject()
+						if IsValid(phys) then
+							phys:SetVelocity(dir * vel)
+							self.Energy = self.Energy - (phys:GetMass() / 5)
+						end
+					end
+
+					-- The shield effect and sound, now not running every tick and breaking shit
+					if self.ShieldEffDel < CurTime() then
+						self.ShieldEffDel = CurTime() + 0.15
+
 						local minimum,maximum = v:WorldSpaceAABB()
 						local size = minimum:Distance(maximum)
 
@@ -1525,19 +1559,19 @@ function ENT:Shield()
 						util.Effect("mech_shieldEffect",effectdata)
 
 						self:EmitSound("combine mech/shieldHit.mp3",85,math.random(80,120))
+					end
 
-						--The shield is down D:
-						if self.Energy <= 0 then
-							self.Energy = -50
-							self:EmitSound("combine mech/ShieldDown.wav",85,math.random(80,120))
-							self.ShieldDown = true
+					--The shield is down D:
+					if self.Energy <= 0 then
+						self.Energy = -50
+						self:EmitSound("combine mech/ShieldDown.wav",85,math.random(80,120))
+						self.ShieldDown = true
 
-							local effectdata = EffectData()
-							effectdata:SetStart( self:GetPos() )
-							effectdata:SetOrigin( self:GetPos() )
-							effectdata:SetScale( 1 )
-							util.Effect( "cball_explode", effectdata )
-						end
+						local effectdata = EffectData()
+						effectdata:SetStart( self:GetPos() )
+						effectdata:SetOrigin( self:GetPos() )
+						effectdata:SetScale( 1 )
+						util.Effect( "cball_explode", effectdata )
 					end
 				end
 			end
@@ -1646,6 +1680,8 @@ function ENT:ShootScreamer()
 		end
 
 		local bomb = ents.Create( "sent_mechscreamerbombTTT" )
+		if not IsValid(bomb) then return end
+
 		bomb:SetPos( self.keepUpRightProp:GetPos() + self.keepUpRightProp:GetUp() * 30 + self.keepUpRightProp:GetForward() * -20 )
 		bomb:SetAngles( self.keepUpRightProp:GetAngles() )
 		bomb.FollowPos = trace.HitPos
@@ -1653,8 +1689,37 @@ function ENT:ShootScreamer()
 		bomb.ActivateDel = CurTime() + 0.2
 		bomb:Spawn()
 		bomb:Activate()
-		bomb:GetPhysicsObject():Wake()
-		bomb:GetPhysicsObject():ApplyForceCenter(Vector(0,0,1000))
+
+		local bombPhys = bomb:GetPhysicsObject()
+		if IsValid(bombPhys) then
+			bombPhys:Wake()
+			bombPhys:ApplyForceCenter(Vector(0,0,1000))
+		end
+	end
+end
+
+-- Now a separate function because code duplication otherwise
+function ENT:ReleaseGravProbe(delay)
+	self.GravProbeSpawned = false
+	self.GravProbeDel = CurTime() + delay
+
+	local probe = self.TempMissile
+	if not IsValid(probe) then
+		self.TempMissile = nil
+		return
+	end
+
+	probe.DestPos = nil
+	probe.ArmTime = CurTime() + 2
+
+	local phys = probe:GetPhysicsObject()
+	if IsValid(phys) then
+		local dir = self:GetForward()
+		if IsValid(self.User) then
+			dir = self.User:GetAimVector()
+		end
+
+		phys:ApplyForceCenter(dir * 1000)
 	end
 end
 
@@ -1667,16 +1732,23 @@ function ENT:ShootGravProbe()
 		local trace = util.TraceLine(tracedata)
 
 		local grav = ents.Create( "sent_mechgravprobeTTT" )
+		if not IsValid(grav) then
+			self.GravProbeSpawned = false
+			return
+		end
+
 		grav:SetPos( trace.HitPos)
 		grav:SetAngles( self.keepUpRightProp:GetAngles() )
 		grav.FollowPos = self.keepUpRightProp:GetPos() + self.keepUpRightProp:GetForward() * 50 + Vector(0,0,-20) + self.User:GetAimVector() * 400
-		grav.ignoreProps[1] = self:EntIndex()
-		grav.ignoreProps[2] = self.mech:EntIndex()
-		grav.ignoreProps[3] = self.keepUpRightProp:EntIndex()
+		grav.ignoreProps = { self:EntIndex(), self.mech:EntIndex(), self.keepUpRightProp:EntIndex() }
 		grav.ArmTime = NULL
 		grav:Spawn()
 		grav:Activate()
-		grav:GetPhysicsObject():Wake()
+
+		local gravPhys = grav:GetPhysicsObject()
+		if IsValid(gravPhys) then
+			gravPhys:Wake()
+		end
 
 		self.TempMissile = grav
 	end

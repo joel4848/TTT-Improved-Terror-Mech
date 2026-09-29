@@ -1,13 +1,11 @@
-
 AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
-ENT.ActivateDel = CurTime()
-ENT.DestPos = NULL
-ENT.ignoreProps = {NULL,NULL,NULL}
-ENT.ActiveEffect = NULL
-ENT.GravSound = NULL
+ENT.ActivateDel  = CurTime()
+ENT.DestPos      = nil
+ENT.ignoreProps  = {}
+ENT.ActiveEffect = nil
 
 function ENT:SpawnFunction(ply, tr)
 --------Spawning the entity and getting some sounds i use.
@@ -26,19 +24,23 @@ end
 
 function ENT:Initialize()
 	self:SetModel("models/props_junk/PopCan01a.mdl")
-	self:SetColor(255, 255, 255, 0)
+
+	-- Rendermode so can is invisible
+	self:SetRenderMode(RENDERMODE_TRANSALPHA)
+	self:SetColor(Color(255, 255, 255, 0))
+
 	self:SetOwner(self:GetOwner())
 	self:PhysicsInit(SOLID_VPHYSICS)
 	self:SetMoveType(MOVETYPE_VPHYSICS)
 	self:SetSolid(SOLID_VPHYSICS)
 
-    local phys = self:GetPhysicsObject()
-	if(phys:IsValid()) then phys:Wake() end
-	phys:EnableGravity(false)
-
+	local phys = self:GetPhysicsObject()
+	if IsValid(phys) then
+		phys:Wake()
+		phys:EnableGravity(false)
+	end
 
 	self.DestPos = self.FollowPos
-	self.ActivateDel = self.ActivateDel
 
 	local yellowSprite = ents.Create("env_sprite");
 	yellowSprite:SetPos( self:GetPos() );
@@ -56,9 +58,11 @@ function ENT:Initialize()
 	yellowSprite:SetParent( self )
 
 	self.ActiveEffect = ents.Create("env_rotorwash_emitter")
-	self.ActiveEffect:SetPos(self:GetPos())
-	self.ActiveEffect:SetParent(self)
-	self.ActiveEffect:Activate()
+	if IsValid(self.ActiveEffect) then
+		self.ActiveEffect:SetPos(self:GetPos())
+		self.ActiveEffect:SetParent(self)
+		self.ActiveEffect:Activate()
+	end
 
 	self.GravSound = CreateSound(self,"weapons/physcannon/superphys_hold_loop.wav")
 	self.GravSound:Play()
@@ -70,109 +74,118 @@ end
 
 -------------------------------------------PHYS COLLIDE
 function ENT:PhysicsCollide( data, phys )
-	ent = data.HitEntity
+	local ent = data.HitEntity
 
 	if ent && ent:IsValid() then
-		constraint.NoCollide( self, ent, 0,0 )
+		timer.Simple(0, function()
+			if IsValid(self) && IsValid(ent) then
+				constraint.NoCollide( self, ent, 0,0 )
+			end
+		end)
+
 		self:EmitSound("weapons/physcannon/energy_bounce"..math.random(1,2)..".wav",75,math.random(80,120))
 	end
-
 end
 
 -------------------------------------------PHYS UPDATE
-function ENT:PhysicsUpdate( physics )
-	local pitch = self:GetVelocity():Length()
-	pitch = pitch / 10
-	local pitch = math.Clamp( pitch, 50, 200 )
+function ENT:PhysicsUpdate(physObj)
+	if not IsValid(physObj) then return end
 
-	self.GravSound:ChangePitch(pitch,0)
+	if self.GravSound then
+		local pitch = self:GetVelocity():Length()
+		pitch = pitch / 10
+		pitch = math.Clamp( pitch, 50, 200 )
 
-	if self.DestPos != NULL then
+		self.GravSound:ChangePitch(pitch,0)
+	end
+
+	if isvector(self.DestPos) then
 		local pos = self:GetPos()
 		local dir = (self.DestPos - pos):GetNormalized()
 
-		self:GetPhysicsObject():ApplyForceCenter(dir * 50)
+		physObj:ApplyForceCenter(dir * 50)
 	end
 
 	local maxDist = 300
+
 	for k, v in pairs(ents.FindInSphere( self:GetPos(), maxDist )) do
+		if IsValid(v) then
+			local phys = v:GetPhysicsObject()
+			local dontUse = false
 
-		local phys = v:GetPhysicsObject()
-		local dontUse = false
-
-		for i = 1,3  do
-			if self.ignoreProps[i] != NULL && self.ignoreProps[i] != nil then
-				if self.ignoreProps[i] == v:EntIndex() or (v.IsMechProp && v.IsMechProp == true) then
+			for _, entIndex in ipairs(self.ignoreProps) do
+				if entIndex == v:EntIndex() or v.IsMechProp then
 					dontUse = true
+					break
 				end
 			end
-		end
 
-		local dir = (self:GetPos() - v:GetPos()):GetNormalized()
-		local dist = self:GetPos():Distance(v:GetPos())
-		local force = dist / maxDist
-		local vel = v:GetVelocity()
-		local speed = vel:Length()
+			local dir = (self:GetPos() - v:GetPos()):GetNormalized()
+			local dist = self:GetPos():Distance(v:GetPos())
+			local force = dist / maxDist
+			local vel = v:GetVelocity()
+			local speed = vel:Length()
 
-		if dontUse == false then
+			if dontUse == false then
 
-			if v:GetClass()=="rpg_missile" && dist > 200 then
-				v:SetLocalVelocity(dir * speed * 1000)
-				v:SetAngles(dir:Angle())
+				if v:GetClass()=="rpg_missile" && dist > 200 then
+					v:SetLocalVelocity(dir * speed * 1000)
+					v:SetAngles(dir:Angle())
+				elseif (v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette") && dist > 200 then
+					v:SetLocalVelocity(dir * speed * 1000)
+				elseif  string.find(v:GetClass(), "missile") && dist > 200 && IsValid(phys) then
+					v:SetAngles(dir:Angle())
+					phys:SetVelocity(dir * speed * 0.5)
+				elseif (v:IsPlayer() or v:IsNPC()) && IsValid(phys) then
+					v:SetVelocity(dir * force * 400 )
 
-			elseif (v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette") && dist > 200 then
-				v:SetLocalVelocity(dir * speed * 1000)
+					if dist > 200 then
+						if speed < 500 then speed = 500 end
+						vel = vel:GetNormalized()
+						vel = vel * dir
+						phys:SetVelocity(dir * speed)
+					end
+				elseif IsValid(phys) then
+					if v:GetClass() == "prop_ragdoll" then
+						force = force * 10
+					end
 
-			elseif  string.find(v:GetClass(), "missile") && dist > 200 then
-				v:SetAngles(dir:Angle())
-				v:GetPhysicsObject():SetVelocity(dir * speed * 0.5)
+					phys:ApplyForceCenter(dir * force * phys:GetMass() * 100)
 
-			elseif (v:IsPlayer() or v:IsNPC()) && phys && phys:IsValid() then
-				v:SetVelocity(dir * force * 400 )
-
-				if dist > 200 then
-					if speed < 500 then speed = 500 end
-					vel = vel:GetNormalized()
-					vel = vel * dir
-					phys:SetVelocity(dir * speed)
-				end
-			elseif phys && phys:IsValid() then
-
-				if v:GetClass() == "prop_ragdoll" then
-					force = force * 10
-				end
-
-				phys:ApplyForceCenter(dir * force * phys:GetMass() * 100)
-
-				if dist > 200 then
-
-					if speed < 500 then speed = 500 end
-					vel = vel:GetNormalized()
-					vel = vel * dir
-					phys:SetVelocity(dir * speed)
+					if dist > 200 then
+						if speed < 500 then speed = 500 end
+						vel = vel:GetNormalized()
+						vel = vel * dir
+						phys:SetVelocity(dir * speed)
+					end
 				end
 			end
 		end
 	end
 end
+
 -------------------------------------------THINK
 function ENT:Think()
-	self:GetPhysicsObject():Wake()
+	local phys = self:GetPhysicsObject()
+	if IsValid(phys) then
+		phys:Wake()
+	end
 
-	if self.ArmTime != NULL then
+	if isnumber(self.ArmTime) then
 		if self.ArmTime < CurTime() then
 			self:Remove()
 		end
 	end
-
 end
 -------------------------------------------REMOVE
 function ENT:OnRemove()
-	self.ActiveEffect:Remove()
-	self.GravSound:Stop()
+	if IsValid(self.ActiveEffect) then
+		self.ActiveEffect:Remove()
+	end
+
+	if self.GravSound then
+		self.GravSound:Stop()
+	end
+
 	self:EmitSound("weapons/physcannon/energy_disintegrate"..math.random(4,5)..".wav",75,math.random(80,120))
-end
-
-function ENT:Activate()
-
 end
