@@ -1,4 +1,4 @@
-local mat = Material("sprites/animglow01")
+-- local mat = Material("sprites/animglow01")
 
 function EFFECT:Init( data )
 	self.Mag = data:GetMagnitude() or 0

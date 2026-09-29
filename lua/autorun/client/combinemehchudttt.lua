@@ -41,10 +41,10 @@ local MakeNoise = function(nr)
 
 	for i = 1,nr  do
 
-		xPos = math.Rand(1,ScrW())
-		yPos = math.Rand(1,ScrH())
-		xSize = math.Rand(1, ScrW() / 20)
-		ySize = math.Rand(1, ScrH() / 20)
+		local xPos = math.Rand(1,ScrW())
+		local yPos = math.Rand(1,ScrH())
+		local xSize = math.Rand(1, ScrW() / 20)
+		local ySize = math.Rand(1, ScrH() / 20)
 
 		local colr = math.Rand(1,255)
 
@@ -240,9 +240,9 @@ function DrawHud()
 		end
 		]]--
 
-		local rCol = 255 - ( 135 * col)
-		local gCol = col * 200
-		local bCol = col * 250
+		local rColHeat = 255 - ( 135 * col)
+		local gColHeat = col * 200
+		local bColHeat = col * 250
 
 		xPos = Width * 0.880952381
 		yPos = Height * 0.1904761905
@@ -274,12 +274,12 @@ function DrawHud()
 
 		surface.SetTexture( heat1Tex )
 		rot1 = rot1 + ((100 - heat) * 0.4) + 1
-		surface.SetDrawColor( rCol, gCol, bCol, 255 )
+		surface.SetDrawColor( rColHeat, gColHeat, bColHeat, 255 )
 		surface.DrawTexturedRectRotated( xPos, yPos, xSize, ySize, rot1 )
 
 		surface.SetTexture( heat2Tex )
 		rot2 = rot2 - ((100 - heat) * 0.5) - 2
-		surface.SetDrawColor(rCol * 0.7, gCol * 0.7, bCol * 0.7, 100 + (150 * col))
+		surface.SetDrawColor(rColHeat * 0.7, gColHeat * 0.7, bColHeat * 0.7, 100 + (150 * col))
 		surface.DrawTexturedRectRotated( xPos, yPos, xSize, ySize, rot2 )
 
 		--HP
@@ -298,11 +298,11 @@ function DrawHud()
 		--draw.RoundedBox( Number Bordersize, Number X, Number Y, Number Width, Number Height, Color Color )
 
 		--crosshair
-		local rCol = 255 - ( 135 * (1-(fly / 1000)))
-		local gCol = (1-(fly / 1000)) * 200
-		local bCol = (1-(fly / 1000)) * 250
+		local rColCrosshair = 255 - ( 135 * (1-(fly / 1000)))
+		local gColCrosshair = (1-(fly / 1000)) * 200
+		local bColCrosshair = (1-(fly / 1000)) * 250
 
-		surface.SetDrawColor( rCol, gCol, bCol, 255 )
+		surface.SetDrawColor( rColCrosshair, gColCrosshair, bColCrosshair, 255 )
 
 		local rot4 = (1-(fly / 1000)) * 100
 
@@ -385,7 +385,7 @@ function DrawHud()
 		end
 
 		if useCam == 2 then
-			local hp = ply:GetNWFloat("combineMechHealth")
+			hp = ply:GetNWFloat("combineMechHealth")
 
 			if hp <= 0 then
 				surface.SetTexture( brokenTex )
