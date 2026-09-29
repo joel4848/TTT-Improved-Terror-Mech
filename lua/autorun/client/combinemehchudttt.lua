@@ -403,9 +403,13 @@ function Hide(Element)
 
 	local ply = LocalPlayer()
 
-	local useCam = ply:GetNWInt("ControlsCombineMech")
+	local useCam
 
-	if useCam > 0 then
+	if IsValid(ply) then
+		useCam = ply:GetNWInt("ControlsCombineMech", -1)
+	end
+
+	if useCam and useCam > 0 then
 		if ( Element == "CHudHealth" ) or ( Element == "CHudBattery" ) then
 			return false
 		end
