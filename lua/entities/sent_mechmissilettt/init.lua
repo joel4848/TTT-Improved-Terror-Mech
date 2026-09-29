@@ -34,7 +34,7 @@ end
 
 function ENT:Initialize()
 	self:SetModel("models/weapons/W_missile_closed.mdl")
-	self:SetColor(255, 255, 255, 255)
+	self:SetColor(Color(255, 255, 255, 255))
 	self:SetOwner(self:GetOwner())
 	self:PhysicsInit(SOLID_VPHYSICS)
 	self:SetMoveType(MOVETYPE_VPHYSICS)
