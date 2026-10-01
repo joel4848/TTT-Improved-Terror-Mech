@@ -1,25 +1,16 @@
---I have tried putting in some comments.
---Sometimes i wonder if it's even worth it.
---Even if someone did read them it would probably be a bit confusing anyway. =[
-
---Have been thinking about writing a story.
---That would probably make more people read the comments.
---A small part of a tale apprearing every now and then.
-
 AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
---There is still something that confuses me about these variables.
---Some of them just automatically becomes globals.
---Like vectors!
---I had to change a vector to separate floats because in multiplayer we ended up controlling each others mechs.
---We could still only move one mech, like i could control my friends mech but my friend controlled a mingebags mech.
---But if it's a global how come we all couldn't control each others mechs?
---Maybe i just did something wrong.
---At least it works with floats now.
+-- There is still something that confuses me about these variables.
+-- Some of them just automatically becomes globals.
+-- Like vectors!
+-- I had to change a vector to separate floats because in multiplayer we ended up controlling each others mechs.
+-- We could still only move one mech, like i could control my friends mech but my friend controlled a mingebags mech.
+-- But if it's a global how come we all couldn't control each others mechs?
+-- Maybe i just did something wrong.
+-- At least it works with floats now.
 
---Misc
 ENT.mech                  = NULL
 ENT.MechUserEnt           = NULL
 ENT.Seat                  = NULL
@@ -35,59 +26,58 @@ ENT.IsUsingJet            = false
 
 ENT.UserSeat = NULL
 
---Health
+-- Health
 ENT.MechHealth    = 400
 ENT.MechMaxHealth = 400
 ENT.DamageLevel   = 0
 ENT.SmokeEffect   = NULL
 
-----Weapons
+-- Weapons
 ENT.wepType      = 1
 ENT.maxWeps      = 3
 ENT.oldWepType   = 1
 ENT.changeWepDel = CurTime()
---Missiles
+-- Missiles
 ENT.ShootRockedDel = CurTime()
 ENT.TempMissile    = NULL
---Grenades
+-- Grenades
 ENT.ShootGrenadeDel = CurTime()
 ENT.GrenadeHeat     = 0
---MissileStorm
+-- MissileStorm
 ENT.ShootMissileStormDel = CurTime()
 ENT.UseMissileStormDel   = CurTime()
 ENT.NextMissileStorm     = CurTime()
 ENT.MissileStormDestPos  = Vector(0,0,0)
---MachineGun
+-- MachineGun
 ENT.MachineGunDel  = CurTime()
 ENT.MachineGunHeat = 100
 ENT.GunHeatDel     = CurTime()
---Screamer
+-- Screamer
 ENT.ScreamerDel     = CurTime()
 ENT.ScreamerFireDel = CurTime()
 ENT.ShouldScreamer  = false
---GravProbe
+-- GravProbe
 ENT.GravProbeDel     = CurTime()
 ENT.GravProbeSpawned = false
---FlashLight
+-- FlashLight
 ENT.FlashLightEnt    = NULL
 ENT.LeftFlashSprite  = NULL
 ENT.RightFlashSprite = NULL
 ENT.FlashLightDel    = CurTime()
---Laser
+-- Laser
 ENT.LaserShootDel = CurTime()
 ENT.LaserUseDel   = CurTime()
 ENT.HasUsedLaser  = false
 
---Player vars
 ENT.User     = NULL
 ENT.enterDel = CurTime()
 
---Hover Var
+-- Hover
 ENT.hoverHeight     = 130
 ENT.hoverMultiplier = 1
 ENT.flyHeight       = 0
 
---Move Var
+-- Move
 ENT.MoveOffsetX      = 0
 ENT.MoveOffsetY      = 0
 ENT.MoveLeftDel      = CurTime()
@@ -102,17 +92,17 @@ ENT.RightMoveDir = NULL
 ENT.FootStatus = 0
 ENT.LastFootStatus = 0
 
---Constraints
+-- Constraints
 ENT.keepUpRightProp = NULL
 ENT.keepUpRightCon = NULL
 ENT.StabAng = NULL
 
---Sounds
+-- Sounds
 ENT.JetSound = NULL
 ENT.JetPlay = false
 ENT.ChargeVortSound = NULL
 
---Shield
+-- Shield
 ENT.Energy = 100
 ENT.MaxEnergy = 100
 ENT.UpdateShield = CurTime()
@@ -120,7 +110,6 @@ ENT.ShieldEffDel = CurTime()
 ENT.ShieldDown = false
 ENT.ShieldSprite = NULL
 
-------------------------------------VARIABLES END
 function ENT:SpawnFunction(ply, tr)
 	if not tr.Hit then return end
 
@@ -144,6 +133,7 @@ function ENT:Initialize()
 	self:SetMoveType(MOVETYPE_VPHYSICS)
 	self:SetSolid(SOLID_VPHYSICS)
 	self:SetColor(Color(0,0,0,0))
+	self:DrawShadow(false)
 
 	self:SetSolid(SOLID_VPHYSICS)
     local phys = self:GetPhysicsObject()
@@ -151,7 +141,7 @@ function ENT:Initialize()
 
 	self.User = NULL
 
-	--Spawning the mech ragdoll
+	-- Spawning the mech ragdoll
 	self.mech = ents.Create( "prop_ragdoll" )
 	self.mech:SetModel( "models/CM/Cmbnmch.mdl" )
 	self.mech:SetName("mechy")
@@ -159,7 +149,7 @@ function ENT:Initialize()
 	self.mech:SetPos(self:GetPos())
 	self.mech:Spawn()
 
-	--Disabling gravity on the mechs legs
+	-- Disabling gravity on the mechs legs
 	self.mech:GetPhysicsObjectNum(3):EnableGravity(false)
 	self.mech:GetPhysicsObjectNum(4):EnableGravity(false)
 	self.mech:GetPhysicsObjectNum(9):EnableGravity(false)
@@ -168,10 +158,10 @@ function ENT:Initialize()
 	local bonepos, boneang = self.mech:GetBonePosition( self.mech:TranslatePhysBoneToBone( 1 ) )
 	self:SetPos(bonepos)
 
-	--Welding the ent to the ragdoll
+	-- Welding the ent to the ragdoll
 	constraint.Weld( self, self.mech, 0, 0, 0, true )
 
-	--Welding the feet to make it more stable and less floppy
+	-- Welding the feet to make it more stable and less floppy
 	constraint.Weld( self.mech, self.mech, 15, 6, 0, true )
 	constraint.Weld( self.mech, self.mech, 7, 6, 0, true )
 	constraint.Weld( self.mech, self.mech, 13, 12, 0, true )
@@ -180,28 +170,30 @@ function ENT:Initialize()
 	constraint.Weld( self.mech, self.mech, 9, 10, 0, true )
 	constraint.Weld( self.mech, self.mech, 3, 4, 0, true )
 
-	--Placing a sawblade in the head and setting keepupright
+	-- Placing a sawblade in the head and setting keepupright
 	self.keepUpRightProp = ents.Create( "prop_physics" )
 	self.keepUpRightProp:SetModel("models/props_junk/sawblade001a.mdl")
 	self.keepUpRightProp:SetPos(self:GetPos() + Vector(0,0,20))
 	self.keepUpRightProp:SetAngles(self:GetAngles())
 	self.keepUpRightProp:SetColor(Color(0,0,0,0))
 	self.keepUpRightProp:Spawn()
+	self.keepUpRightProp:DrawShadow(false)
 	self.keepUpRightProp:GetPhysicsObject():EnableGravity(false)
 	self.keepUpRightCon = constraint.Keepupright( self.keepUpRightProp, self:GetAngles(), 0, 100000000 )
 
 	self.StabAng = self:GetAngles()
 	constraint.Weld( self.keepUpRightProp, self.mech, 0, 1, 0, true )
 
-	--The control station
+	-- The control station
 	self.MechUserEnt = ents.Create( "sent_combinemechUserTTT" )
 	self.MechUserEnt:SetPos(self:GetPos()  + Vector(27,0.5,-18))
 	self.MechUserEnt:SetAngles(Angle(0,0,90))
 	self.MechUserEnt:Spawn()
+	self.MechUserEnt:DrawShadow(false)
 	self.MechUserEnt:SetNWEntity( "CombineMechEnt", self )
 	constraint.Weld( self.mech, self.MechUserEnt, 0, 0, 0, true )
 
-	--Shield sprite
+	-- Shield sprite
 	self.ShieldSprite = ents.Create("env_sprite");
 	self.ShieldSprite:SetPos( self:GetPos() + Vector(-64,0,50) );
 	self.ShieldSprite:SetKeyValue( "renderfx", "14" )
@@ -230,6 +222,7 @@ function ENT:Initialize()
 	self.UserSeat:SetKeyValue("limitview", "0")
 	self.UserSeat:SetColor(Color(255,255,255,0))
 	self.UserSeat:Spawn()
+	self.UserSeat:DrawShadow(false)
 	self.UserSeat:SetNotSolid( true )
 	self.UserSeat:GetPhysicsObject():EnableGravity(false)
 end
@@ -248,16 +241,17 @@ function ENT:OnTakeDamage(dmg)
 
 	self.MechHealth = self.MechHealth - Damage
 end
+
 -------------------------------------------PhysicsUpdate
 function ENT:PhysicsUpdate(physics)
-	--If we don't have a ragdoll to manipulate there is no meaning in running this func
+	-- If we don't have a ragdoll to manipulate there is no meaning in running this func
 	if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
-	--Toggling between first person view and third person view
-	--Also checking if the player left the control station
-	if self.User ~= NULL && self.User && self.User:IsValid() then
+	-- Toggling between first person view and third person view
+	-- Also checking if the player left the control station
+	if self.User ~= NULL and self.User and self.User:IsValid() then
 
-		if self.User:KeyDown( IN_ATTACK2 ) && self.ChangeViewDel < CurTime() then
+		if self.User:KeyDown( IN_ATTACK2 ) and self.ChangeViewDel < CurTime() then
 
 			self.ChangeViewDel = CurTime() + 0.5
 
@@ -270,37 +264,37 @@ function ENT:PhysicsUpdate(physics)
 			end
 		end
 
-		if not(self.User:InVehicle()) or not(self.User:Alive()) or (self.enterDel < CurTime() && self.User:KeyDown( IN_USE )) then
+		if not(self.User:InVehicle()) or not(self.User:Alive()) or (self.enterDel < CurTime() and self.User:KeyDown( IN_USE )) then
 			self:RemoveUser()
 		end
 	end
 
-	--Health has to be above 0 to use it
+	-- Health has to be above 0 to use it
 	if self.MechHealth > 0 then
 		if not IsValid(self.UserSeat) then return end
 		self.UserSeat:SetPos(self:GetPos())
 		self.UserSeat:SetAngles(Angle(0,0,0))
 
-		--Increasing shield energy
+		-- Increasing shield energy
 		self.Energy = self.Energy + 0.04
 		if self.Energy > self.MaxEnergy then
 			self.Energy = self.MaxEnergy
 		end
 
-		--Making it hover
-		if (self.FootStatus > 0 or self.flyHeight > 0) && (self.DotProd >= 0.7 or self.JetPlay == true) then
+		-- Making it hover
+		if (self.FootStatus > 0 or self.flyHeight > 0) and (self.DotProd >= 0.7 or self.JetPlay == true) then
 			self:Hover()
 		end
 
-		--Foot status
+		-- Foot status
 		self:UpdateFootStatus()
 
-		--Shield code
+		-- Shield code
 		if self.UpdateShield < CurTime() then
 			self:Shield()
 		end
 
-		if (self.FootStatus > 0 or self.flyHeight > 0) && self.keepUpRightCon ~= NULL  then
+		if (self.FootStatus > 0 or self.flyHeight > 0) and self.keepUpRightCon ~= NULL  then
 			self:AutoMoveFeet()
 			self:Stabilize()
 
@@ -317,8 +311,8 @@ function ENT:PhysicsUpdate(physics)
 			self:GetPhysicsObject():SetVelocity(vel)
 		end
 
-		--Checking keys
-		if self.User ~= NULL && IsValid(self.User) then
+		-- Checking keys
+		if self.User ~= NULL and IsValid(self.User) then
 			local moves = false
 			local crouching = false
 			local flying = false
@@ -327,15 +321,15 @@ function ENT:PhysicsUpdate(physics)
 				flying = true
 			end
 
-			--Directing flash light
-			if self.FlashLightEnt ~= NULL && self.keepUpRightProp ~= NULL then
+			-- Directing flash light
+			if self.FlashLightEnt ~= NULL and self.keepUpRightProp ~= NULL then
 				local propAng = self.keepUpRightProp:GetAngles()
 				local plyViewAng = self.User:GetAimVector():Angle()
 				propAng.p = plyViewAng.p
 				self.FlashLightEnt:SetLocalAngles( Angle(plyViewAng.p,0,0) )
 			end
 
-			--Pressing walk will make it go lower (crouching)
+			-- Pressing walk will make it go lower (crouching)
 			if self.User:KeyDown( IN_WALK ) then
 				self:SetHoverHeight( 110 + self.flyHeight )
 				crouching = true
@@ -343,10 +337,10 @@ function ENT:PhysicsUpdate(physics)
 				self:SetHoverHeight( 130 + self.flyHeight )
 			end
 
-			--We cannot move while crouching
+			-- We cannot move while crouching
 			if crouching == false then
-				--Changine the offset depending on which keys are being pressed.
-				--The automove func will notice that the feet aren't where they are supposed to be and then moves it's feet towards the offset position
+				-- Changine the offset depending on which keys are being pressed.
+				-- The automove func will notice that the feet aren't where they are supposed to be and then moves it's feet towards the offset position
 				if self.User:KeyDown( IN_FORWARD ) then
 					self.MoveOffsetX = 40
 					moves = true
@@ -393,8 +387,8 @@ function ENT:PhysicsUpdate(physics)
 			end
 
 			------Weapons
-			--Cycling through weapons
-			if self.User:KeyDown( IN_SPEED ) && self.changeWepDel < CurTime() then
+			-- Cycling through weapons
+			if self.User:KeyDown( IN_SPEED ) and self.changeWepDel < CurTime() then
 				self.changeWepDel = CurTime() + 0.5
 
 				self.wepType = self.wepType + 1
@@ -406,18 +400,18 @@ function ENT:PhysicsUpdate(physics)
 				self.User.mechKey = self.wepType
 			end
 
-			--If we used a number key
-			if self.User.mechKey ~= nil && self.User.mechKey ~= self.wepType && self.User.mechKey <= self.maxWeps && self.User.mechKey > 0 then
+			-- If we used a number key
+			if self.User.mechKey ~= nil and self.User.mechKey ~= self.wepType and self.User.mechKey <= self.maxWeps and self.User.mechKey > 0 then
 				self.wepType = self.User.mechKey
 			end
 
-			--Flahslight
-			if self.User.mechKey ~= nil && self.User.mechKey == 10 && self.FlashLightDel < CurTime() then
+			-- Flashlight
+			if self.User.mechKey ~= nil and self.User.mechKey == 10 and self.FlashLightDel < CurTime() then
 				self.FlashLightDel = CurTime() + 0.25
 				self.User.mechKey = self.wepType
 
 				if self.FlashLightEnt == NULL then
-					--Turn it on
+					-- Turn it on
 					self:EmitSound("buttons/button1.wav")
 
 					local pos = Vector(50,0,-20)
@@ -461,7 +455,7 @@ function ENT:PhysicsUpdate(physics)
 					self.RightFlashSprite:SetParent( self.keepUpRightProp )
 
 				else
-					--Turn it off
+					-- Turn it off
 					self:EmitSound("buttons/button4.wav")
 					self.FlashLightEnt:Remove()
 					self.FlashLightEnt = NULL
@@ -471,14 +465,14 @@ function ENT:PhysicsUpdate(physics)
 			end
 
 			-- Forget grav probe if it no longer exists
-			if self.GravProbeSpawned == true && not IsValid(self.TempMissile) then
+			if self.GravProbeSpawned == true and not IsValid(self.TempMissile) then
 				self.GravProbeSpawned = false
 				self.TempMissile = nil
 				self.GravProbeDel = CurTime() + 2
 			end
 
-			--Grav probe exploit fix
-			if self.GravProbeSpawned == true && self.wepType == 2 && self.User:KeyDown( IN_ATTACK ) then
+			-- Grav probe exploit fix
+			if self.GravProbeSpawned == true and self.wepType == 2 and self.User:KeyDown( IN_ATTACK ) then
 				local tracedata = {}
 				tracedata.start = self.keepUpRightProp:GetPos() + self.keepUpRightProp:GetForward() * 50 + Vector(0,0,-20)
 				tracedata.endpos = tracedata.start + (self.User:GetAimVector() * 400)
@@ -491,17 +485,17 @@ function ENT:PhysicsUpdate(physics)
 				if IsValid(probePhys) then
 					probePhys:SetVelocity(self.TempMissile:GetVelocity() * 0.9)
 				end
-			elseif (not(self.User:KeyDown( IN_ATTACK )) or self.wepType ~= 3) && self.GravProbeSpawned == true then
+			elseif (not(self.User:KeyDown( IN_ATTACK )) or self.wepType ~= 3) and self.GravProbeSpawned == true then
 				self:ReleaseGravProbe(4)
 				self:EmitSound("weapons/physcannon/superphys_small_zap"..math.random(1,4)..".wav",75,math.random(80,120))
 			end
 
-			if self.User:KeyDown( IN_ATTACK ) && self.flyHeight <= 0 && self.keepUpRightCon ~= NULL && self.GravProbeSpawned == false && self.UseMissileStormDel < CurTime() then
+			if self.User:KeyDown( IN_ATTACK ) and self.flyHeight <= 0 and self.keepUpRightCon ~= NULL and self.GravProbeSpawned == false and self.UseMissileStormDel < CurTime() then
 				if self.GravProbeSpawned == true then
 					self:ReleaseGravProbe(2)
 				end
-				--I reallly miss "switch case" in these situations
-				if self.wepType == 1 && self.MachineGunDel < CurTime() && self.GunHeatDel < CurTime() then
+				-- I reallly miss "switch case" in these situations
+				if self.wepType == 1 and self.MachineGunDel < CurTime() and self.GunHeatDel < CurTime() then
 					self.MachineGunDel = CurTime() + 0.05
 
 					if self.MachineGunHeat > 0 then
@@ -514,23 +508,23 @@ function ENT:PhysicsUpdate(physics)
 						self.GunHeatDel = CurTime() + 2
 						self:EmitSound("combine mech/OverHeat.wav",85,math.random(80,120))
 					end
-				--Screamer
-				elseif self.wepType == 2 && self.ScreamerDel < CurTime() then
+				-- Screamer
+				elseif self.wepType == 2 and self.ScreamerDel < CurTime() then
 					self.ScreamerDel = CurTime() + 15
 					self.ScreamerFireDel = CurTime() + 2
 					self.ShouldScreamer = true
 					self:EmitSound("combine mech/ScreamerChargeUp.wav",100,math.random(80,120))
 
-				--Grav probe
-				elseif self.wepType == 3 && self.GravProbeDel < CurTime() && self.GravProbeSpawned == false then
+				-- Grav probe
+				elseif self.wepType == 3 and self.GravProbeDel < CurTime() and self.GravProbeSpawned == false then
 					self.GravProbeSpawned = true
 					self:ShootGravProbe()
 					self:EmitSound("weapons/physcannon/energy_sing_flyby"..math.random(1,2)..".wav",75,math.random(80,120))
 				end
 			end
 
-			--Waiting for the mech charges up before we launch the screamer
-			if self.ScreamerFireDel < CurTime() && self.ShouldScreamer == true then
+			-- Waiting for the mech charges up before we launch the screamer
+			if self.ScreamerFireDel < CurTime() and self.ShouldScreamer == true then
 				self:ShootScreamer()
 				self.ShouldScreamer = false
 			end
@@ -541,7 +535,7 @@ function ENT:PhysicsUpdate(physics)
 			end
 
 			-- Waiting for mech laser charge up
-			if self.LaserShootDel < CurTime() && self.HasUsedLaser == true then
+			if self.LaserShootDel < CurTime() and self.HasUsedLaser == true then
 				self.HasUsedLaser = false
 
 				self.ChargeVortSound:Stop()
@@ -575,26 +569,26 @@ function ENT:PhysicsUpdate(physics)
 				util.Effect( "SakLaserTracer", effectdata )
 			end
 
-			--If the mech is moving we will make the mech pelvis face the view direction
+			-- If the mech is moving we will make the mech pelvis face the view direction
 			if moves == true or self.flyHeight > 0 then
 				self:DirectMech()
 			end
 
-			--Launching missiles for a period of time
-			if self.UseMissileStormDel > CurTime() && self.NextMissileStorm < CurTime() then
+			-- Launching missiles for a period of time
+			if self.UseMissileStormDel > CurTime() and self.NextMissileStorm < CurTime() then
 				self:ShootMissileStorm()
 				self.NextMissileStorm = CurTime() + 0.05
 			end
 		else
 			self:SetHoverHeight( 130 + self.flyHeight )
 
-			--Launching the Grav Probe when we release the primary fire button
+			-- Launching the Grav Probe when we release the primary fire button
 			if self.GravProbeSpawned == true then
 				self:ReleaseGravProbe(2)
 			end
 		end
 
-		--Jet effect
+		-- Jet effect
 		if self.flyHeight > 0 then
 			self.JetTimer = CurTime() + 1
 
@@ -603,17 +597,17 @@ function ENT:PhysicsUpdate(physics)
 				self.JetSound:Play()
 			end
 
-			--Changine the pitch depending on the height
-			--Things like this is really effective actually because it's not just a cool effect
-			--it gives feedback to the player telling how high he's flying.
-			--No stupid hud elements needed. Something to think about.... i made a hud element for it anyway.
+			-- Changine the pitch depending on the height
+			-- Things like this is really effective actually because it's not just a cool effect
+			-- it gives feedback to the player telling how high he's flying.
+			-- No stupid hud elements needed. Something to think about.... i made a hud element for it anyway.
 			local pitch = 50 + ((self.flyHeight / 1000) * 150)
 			self.JetSound:ChangePitch( pitch, 0 )
 
 			local pos = self.mech:GetPos() + self:GetForward() * -11.5 + self:GetUp() * -10
 			local ang = self:GetAngles()
 
-			--Jet fart
+			-- Jet fart
 			local effectdata = EffectData()
 			effectdata:SetOrigin( pos )
 			effectdata:SetAngles( ang )
@@ -627,13 +621,13 @@ function ENT:PhysicsUpdate(physics)
 			effectdata2:SetScale( 1 )
 			util.Effect( "MuzzleEffect", effectdata2 )
 		else
-			--Stopping the jet sound if we aren't flying
+			-- Stopping the jet sound if we aren't flying
 			self.JetPlay = false
 			self.JetSound:Stop()
 		end
 
-		--FootSounds
-		if (self.LastFootStatus == 2 or self.LastFootStatus == 1) && (self.FootStatus == 3 or self.FootStatus == 0) && self.DotProd >= 0.7 then
+		-- Foot Sounds
+		if (self.LastFootStatus == 2 or self.LastFootStatus == 1) and (self.FootStatus == 3 or self.FootStatus == 0) and self.DotProd >= 0.7 then
 			self:EmitSound("npc/dog/dog_footstep_run"..math.random(1,8)..".wav",75,math.random(80,120))
 		end
 
@@ -642,14 +636,14 @@ function ENT:PhysicsUpdate(physics)
 end
 -------------------------------------------THINK
 function ENT:Think()
-	--The ent isn't a part of the ragdoll so i have to check if someone removed it
-	--If it is removed then ent will remove itself
+	-- The ent isn't a part of the ragdoll so i have to check if someone removed it
+	-- If it is removed then ent will remove itself
 	if not self.mech or self.mech == NULL or self.mech == nil then
 		self:Remove()
 	end
 
-	--Water is bad!
-	--Why would i make some kind of silly submarine mode?
+	-- Water is bad!
+	-- Why would i make some kind of silly submarine mode?
 	if self:WaterLevel() >= 1 then
 		self.MechHealth = self.MechHealth - 1
 	end
@@ -657,58 +651,52 @@ function ENT:Think()
 	if self.MechHealth > 0 then
 		self:GetPhysicsObject():Wake()
 
-		--Fixing jet smoke
-		if self.IsUsingJet == false && self.flyHeight > 0 then
+		-- Jet smoke?
+		if self.IsUsingJet == false and self.flyHeight > 0 then
 			self.IsUsingJet = true
 			self:SetNWBool("IsFlying", true)
-		elseif self.IsUsingJet == true && self.flyHeight == 0 then
+		elseif self.IsUsingJet == true and self.flyHeight == 0 then
 			self.IsUsingJet = false
 			self:SetNWBool("IsFlying", false)
 		end
 
-		--Updating player networked vals for the hud
-		if self.User ~= NULL && self.User && self.User:IsValid() then
+		-- Updating networked bits for the hud
+		if IsValid(self.User) then
+			-- Health and shield
+			local hpPercent = math.Clamp(self.MechHealth / self.MechMaxHealth, 0, 1)
+			local shieldPercent = math.Clamp(self.Energy / self.MaxEnergy, 0, 1)
 
-			--I wonder if i should check if the variable have changed before i set the networked vals.
-			--I believe that the server doesn't send clients the same value if it haven't changed.
-			local percent = 0
-
-			percent = self.MechHealth / self.MechMaxHealth
-			self.User:SetNWFloat("combineMechHealth", percent)
-
-			percent = self.Energy / self.MaxEnergy
-			self.User:SetNWFloat("combineMechShield", percent)
-
+			self.User:SetNWFloat("combineMechHealth", hpPercent)
+			self.User:SetNWFloat("combineMechShield", shieldPercent)
 			self.User:SetNWInt("combineMechWeapon", self.wepType)
 			self.User:SetNWInt("combineMechFlyHeight", self.flyHeight)
 
-			--Weapon heat
-			if self.wepType == 1 then
-				percent = (1 - (self.ShootRockedDel - CurTime()))
-			elseif self.wepType == 2 then
-				percent = 1 - (self.GrenadeHeat / 10)
-			elseif self.wepType == 3 then
-				percent = (20 - (self.ShootMissileStormDel - CurTime())) / 20
-			elseif self.wepType == 4 then
-				percent = self.MachineGunHeat / 100
-			elseif self.wepType == 5 then
-				percent = (15 - (self.ScreamerDel - CurTime())) / 15
-			elseif self.wepType == 6 then
-				percent = (4 - (self.GravProbeDel - CurTime())) / 4
+			-- Heat percentage
+			local heatPercent = 0
 
-				if self.GravProbeSpawned == true then
-					percent = 0
+			if self.wepType == 1 then
+				-- Turret gun (weapon 1) - "heat" goes from 100 (cool) to 0 (not cool)
+				heatPercent = 1 - (self.MachineGunHeat / 100)
+			elseif self.wepType == 2 then
+				-- Screamer (weapon 2) - 15-second cooldown
+				if self.ScreamerDel > CurTime() then
+					heatPercent = (self.ScreamerDel - CurTime()) / 15
 				end
-			elseif self.wepType == 7 then
-				percent = (4 - (self.LaserUseDel - CurTime())) / 4
+			elseif self.wepType == 3 then
+				-- Grav Probe (weapon 3) - heat is max while it's active, then a 4-second cooldown
+				if self.GravProbeSpawned then
+					heatPercent = 1
+				elseif self.GravProbeDel > CurTime() then
+					heatPercent = (self.GravProbeDel - CurTime()) / 4
+				end
 			end
 
-			percent = math.Clamp( percent, 0, 1 )
-			self.User:SetNWInt("combineMechHeat", percent)
+			heatPercent = math.Clamp(heatPercent, 0, 1)
+			self.User:SetNWFloat("combineMechHeat", heatPercent)
 		else
 			self.HasUsedLaser = false
 			self.ShouldScreamer = false
-			--Removing the flash light if the player exited the mech
+			-- Removing the flash light if the player exited the mech
 			if self.FlashLightEnt ~= NULL then
 				self.FlashLightEnt:Remove()
 				self.FlashLightEnt = NULL
@@ -716,15 +704,15 @@ function ENT:Think()
 				self.RightFlashSprite:Remove()
 			end
 
-			--Autorepair
-			if self.MechHealth < self.MechMaxHealth && self.MechHealth > 0 then
+			-- Autorepair
+			if self.MechHealth < self.MechMaxHealth and self.MechHealth > 0 then
 				self.MechHealth = self.MechHealth + 0.2
 
 				local percent = self.MechHealth / self.MechMaxHealth
 
-				--Have to cycle through the different damage levels in reverse D:>
-				--Could have done this in a func.
-				if self.DamageLevel == 4 && percent > 0.1 then
+				-- Have to cycle through the different damage levels in reverse D:>
+				-- Could have done this in a func.
+				if self.DamageLevel == 4 and percent > 0.1 then
 					self.DamageLevel = 3
 
 					local pos = self.keepUpRightProp:GetForward() * -60 + self.keepUpRightProp:GetUp() * 20
@@ -748,11 +736,11 @@ function ENT:Think()
 					self.SmokeEffect:SetKeyValue("JetLength", "50")
 					self.SmokeEffect:SetKeyValue("twist", "5")
 
-					--Spawn smoke
+					-- Spawn smoke
 					self.SmokeEffect:Spawn()
 					self.SmokeEffect:SetParent(self)
 					self.SmokeEffect:Activate()
-				elseif self.DamageLevel == 3 && percent > 0.25 then
+				elseif self.DamageLevel == 3 and percent > 0.25 then
 					self.DamageLevel = 2
 
 					local pos = self.keepUpRightProp:GetForward() * -60 + self.keepUpRightProp:GetUp() * 20
@@ -776,12 +764,12 @@ function ENT:Think()
 					self.SmokeEffect:SetKeyValue("JetLength", "50")
 					self.SmokeEffect:SetKeyValue("twist", "5")
 
-					--Spawn smoke
+					-- Spawn smoke
 					self.SmokeEffect:Spawn()
 					self.SmokeEffect:SetParent(self)
 					self.SmokeEffect:Activate()
 
-				elseif self.DamageLevel == 2 && percent > 0.5 then
+				elseif self.DamageLevel == 2 and percent > 0.5 then
 					self.DamageLevel = 1
 
 					local pos = self.keepUpRightProp:GetForward() * -60 + self.keepUpRightProp:GetUp() * 20
@@ -805,12 +793,12 @@ function ENT:Think()
 					self.SmokeEffect:SetKeyValue("JetLength", "50")
 					self.SmokeEffect:SetKeyValue("twist", "5")
 
-					--Spawn smoke
+					-- Spawn smoke
 					self.SmokeEffect:Spawn()
 					self.SmokeEffect:SetParent(self)
 					self.SmokeEffect:Activate()
 
-				elseif self.DamageLevel == 1 && percent > 0.75 then
+				elseif self.DamageLevel == 1 and percent > 0.75 then
 					self.DamageLevel = 0
 					self.SmokeEffect:Remove()
 					self.SmokeEffect = NULL
@@ -818,7 +806,7 @@ function ENT:Think()
 			end
 		end
 
-		--Giving ammo to weapons or "cooling" them down
+		-- Giving ammo to weapons or "cooling" them down
 		self.MachineGunHeat = self.MachineGunHeat + 10
 		if self.MachineGunHeat > 100 then
 			self.MachineGunHeat = 100
@@ -829,9 +817,9 @@ function ENT:Think()
 			self.GrenadeHeat = 0
 		end
 
-		--Making npc's hate the mech
-		--Don't have to update this too often
-		if self.NPCTarget ~= NULL && self.UpdateMechAsTargetDel < CurTime() then
+		-- Making npc's hate the mech
+		-- Don't have to update this too often
+		if self.NPCTarget ~= NULL and self.UpdateMechAsTargetDel < CurTime() then
 			self.UpdateMechAsTargetDel = CurTime() + 2
 			for k,v in pairs(ents.FindByClass("npc_*")) do
 				if ( string.find(v:GetClass(), "npc_antlionguard")) or ( string.find(v:GetClass(), "npc_combine*")) or ( string.find(v:GetClass(), "*zombie*")) or ( string.find(v:GetClass(), "npc_helicopter")) or ( string.find(v:GetClass(), "npc_manhack")) or ( string.find(v:GetClass(), "npc_metropolice")) or ( string.find(v:GetClass(), "npc_rollermine")) or ( string.find(v:GetClass(), "npc_strider")) or ( string.find(v:GetClass(), "npc_turret*")) or ( string.find(v:GetClass(), "npc_hunter")) or ( string.find(v:GetClass(), "antlion")) then
@@ -840,7 +828,7 @@ function ENT:Think()
 			end
 		end
 
-		--Setting shield sprite col
+		-- Setting shield sprite col
 		if self.ShieldSprite ~= NULL then
 			local rCol = 2.5 * (self.MaxEnergy - self.Energy)
 			local gCol = 2.5 * self.Energy
@@ -855,9 +843,9 @@ function ENT:Think()
 			self.ShieldSprite:SetKeyValue( "rendercolor", rCol.." "..gCol.." "..bCol)
 		end
 
-		--Increasing the fly height if the player is pressing jump
-		--It's placed here since it doesn't need to be updated so often
-		if self.User ~= NULL && IsValid(self.User) && self.User:KeyDown( IN_JUMP ) then
+		-- Increasing the fly height if the player is pressing jump
+		-- It's placed here since it doesn't need to be updated so often
+		if self.User ~= NULL and IsValid(self.User) and self.User:KeyDown( IN_JUMP ) then
 			self.flyHeight = self.flyHeight + 20
 
 			if self.flyHeight > 1000 then
@@ -873,14 +861,14 @@ function ENT:Think()
 		self.DotProd = self:GetUp():Dot(Vector(0,0,1))
 		self:Steady()
 
-		--If the shield goes up after being down we will play a fancy sound and set the energy to 25%
-		if self.ShieldDown == true && self.Energy > 0 then
+		-- If the shield goes up after being down we will play a fancy sound and set the energy to 25%
+		if self.ShieldDown == true and self.Energy > 0 then
 			self.ShieldDown = false
 			self.Energy = 25
 			self:EmitSound("combine mech/ShieldUp.wav",85,math.random(80,120))
 		end
 	else
-		--This happens when the mech have died
+		-- This happens when the mech have died
 		self.Energy = 0
 		self.JetSound:Stop()
 
@@ -894,7 +882,7 @@ function ENT:Think()
 			self.keepUpRightCon = NULL
 		end
 
-		--Making NPC's stop shooting at it
+		-- Making NPC's stop shooting at it
 		if self.NPCTarget ~= NULL then
 			self.NPCTarget:Remove()
 			self.NPCTarget = NULL
@@ -902,23 +890,23 @@ function ENT:Think()
 			self.NPCTarget2 = NULL
 		end
 
-		--Removing the shield sprite
+		-- Removing the shield sprite
 		if self.ShieldSprite ~= NULL then
 			self.ShieldSprite:Remove()
 			self.ShieldSprite = NULL
 		end
 
-		--Setting hud hp to 0
+		-- Setting hud hp to 0
 		if self.User ~= NULL then
 			self.User:SetNWFloat("combineMechHealth", 0)
 		end
 	end
 
-	--Health effects
+	-- Health effects
 	local percent = self.MechHealth / self.MechMaxHealth
 
-	--Calculating by percent so people can change the maxHP and this would still work
-	if self.DamageLevel == 0 && percent < 0.75 then
+	-- Calculating by percent so people can change the maxHP and this would still work
+	if self.DamageLevel == 0 and percent < 0.75 then
 		self.DamageLevel = 1
 		local pos = self.keepUpRightProp:GetForward() * -60 + self.keepUpRightProp:GetUp() * 20
 		self.SmokeEffect = ents.Create("env_smokestack")
@@ -939,11 +927,11 @@ function ENT:Think()
 		self.SmokeEffect:SetKeyValue("JetLength", "50")
 		self.SmokeEffect:SetKeyValue("twist", "5")
 
-		--Spawn smoke
+		-- Spawn smoke
 		self.SmokeEffect:Spawn()
 		self.SmokeEffect:SetParent(self)
 		self.SmokeEffect:Activate()
-	elseif self.DamageLevel == 1 && percent < 0.5 then
+	elseif self.DamageLevel == 1 and percent < 0.5 then
 		self.DamageLevel = 2
 
 		local pos = self.keepUpRightProp:GetForward() * -60 + self.keepUpRightProp:GetUp() * 20
@@ -967,11 +955,11 @@ function ENT:Think()
 		self.SmokeEffect:SetKeyValue("JetLength", "50")
 		self.SmokeEffect:SetKeyValue("twist", "5")
 
-		--Spawn smoke
+		-- Spawn smoke
 		self.SmokeEffect:Spawn()
 		self.SmokeEffect:SetParent(self)
 		self.SmokeEffect:Activate()
-	elseif self.DamageLevel == 2 && percent < 0.25 then
+	elseif self.DamageLevel == 2 and percent < 0.25 then
 		self.DamageLevel = 3
 
 		local pos = self.keepUpRightProp:GetForward() * -60 + self.keepUpRightProp:GetUp() * 20
@@ -995,11 +983,11 @@ function ENT:Think()
 		self.SmokeEffect:SetKeyValue("JetLength", "50")
 		self.SmokeEffect:SetKeyValue("twist", "5")
 
-		--Spawn smoke
+		-- Spawn smoke
 		self.SmokeEffect:Spawn()
 		self.SmokeEffect:SetParent(self)
 		self.SmokeEffect:Activate()
-	elseif self.DamageLevel == 3 && percent < 0.1 then
+	elseif self.DamageLevel == 3 and percent < 0.1 then
 		self.DamageLevel = 4
 
 		self.SmokeEffect:Remove()
@@ -1010,7 +998,7 @@ function ENT:Think()
 		self.SmokeEffect:SetParent(self.keepUpRightProp)
 	end
 
-	if percent < 0.75 && percent > 0 then
+	if percent < 0.75 and percent > 0 then
 		local maxPer = (percent * 100) / 2
 
 		local useEff = math.random(0,maxPer)
@@ -1068,27 +1056,27 @@ end
 
 -----------------------------------------------------------------------MISC FUNCS
 
---Planned on adding more funcs so people could make theyr own AI for it but
---I'm just getting too tired of this project. =[
---I just want to release it.
---Maybe i will add some neat funcs in an update.
---Somthing like this would be handy    MoveTo(Pos), SetTarget(ent), SetWeapon(int), Engage(), GoToTarget(ent)
+-- Planned on adding more funcs so people could make theyr own AI for it but
+-- I'm just getting too tired of this project. =[
+-- I just want to release it.
+-- Maybe i will add some neat funcs in an update.
+-- Somthing like this would be handy    MoveTo(Pos), SetTarget(ent), SetWeapon(int), Engage(), GoToTarget(ent)
 
---PUBLIC FUNCS
+-- PUBLIC FUNCS
 
---Sets the hover height
---0 = on ground
+-- Sets the hover height
+-- 0 = on ground
 -- 0< = flying
 function ENT:SetHoverHeight( newHeight )
 	self.hoverHeight = newHeight
 end
 
---How much thrust you want it to use
+-- How much thrust you want it to use
 function ENT:SetHoverMultiplier( newMP )
 	self.hoverMultiplier = newMP
 end
 
---Sets a player user
+-- Sets a player user
 function ENT:SetUser(ply)
 	self.enterDel = CurTime() + 1
 
@@ -1108,7 +1096,7 @@ function ENT:SetUser(ply)
 	self.User:SetNWFloat("combineMechShield", percent)
 	self.User:SetNWInt("combineMechWeapon", self.wepType)
 	self.User:SetNWInt("combineMechFlyHeight", self.flyHeight)
-	self.User:SetNWInt("combineMechHeat", 1)
+	self.User:SetNWFloat("combineMechHeat", 0)
 
 	self.User:SetNWInt( "ControlsCombineMech" , 1 )
 	self.User:SetNWEntity( "CombineMechEnt", self )
@@ -1120,7 +1108,7 @@ function ENT:SetUser(ply)
 	viewAng.r = 0
 	self.User:SnapEyeAngles( viewAng )*/
 
-	--Two targets for NPC's to shoot
+	-- Two targets for NPC's to shoot
 
 	if self.NPCTarget == NULL then
 		self.NPCTarget = ents.Create("npc_bullseye")
@@ -1143,7 +1131,7 @@ function ENT:SetUser(ply)
 	end
 end
 
---This just checks if someone already is controlling the mech before entering it
+-- This just checks if someone already is controlling the mech before entering it
 function ENT:EnterMech(ply)
 	if self.User == NULL then
 		self:SetUser(ply)
@@ -1164,11 +1152,11 @@ function ENT:RemoveUser()
 	end
 end
 
---PRIVATE FUNCS
+-- PRIVATE FUNCS
 function ENT:Hover()
 	if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
-	--Getting the distance between the mech and the ground
+	-- Getting the distance between the mech and the ground
 	local trace = {}
 	trace.start = self.mech:GetPos()
 	trace.endpos = self.mech:GetPos() + Vector(0, 0, self.hoverHeight * -1)
@@ -1187,15 +1175,15 @@ function ENT:Hover()
 			if self.flyHeight < 1 then self.flyHeight = 1 end
 		end
 
-		--Max thrust is 50
-		--Maybe i should use Mod() instead of this.
+		-- Max thrust is 50
+		-- Maybe i should use Mod() instead of this.
 		if force > 50 then
 			force = 50
 		end
 
-		--Decreasing the hover height if the player isn't pressing the jump button or if there is no player controlling it
+		-- Decreasing the hover height if the player isn't pressing the jump button or if there is no player controlling it
 
-		if (self.User && self.User ~= nil && self.User ~= NULL && IsValid(self.User) && not(self.User:KeyDown( IN_JUMP ))) or self.User == NULL then
+		if (self.User and self.User ~= nil and self.User ~= NULL and IsValid(self.User) and not(self.User:KeyDown( IN_JUMP ))) or self.User == NULL then
 			self.flyHeight = self.flyHeight - 2
 
 			if self.flyHeight < 0 then
@@ -1203,12 +1191,12 @@ function ENT:Hover()
 			end
 		end
 
-		--Applying the force
+		-- Applying the force
 		self.mech:GetPhysicsObjectNum(0):ApplyForceCenter(Vector(0,0,50) * force)
 	end
 end
 
---Checks if there is something under the feet
+-- Checks if there is something under the feet
 function ENT:UpdateFootStatus()
 	if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
@@ -1237,15 +1225,15 @@ function ENT:UpdateFootStatus()
 	trace.filter =  { self, self.mech, self.keepUpRightProp}
 	local tr = util.TraceLine( trace )
 
-	if tr.Hit && self.FootStatus == 1 then
+	if tr.Hit and self.FootStatus == 1 then
 		self.FootStatus = 3
 	elseif tr.Hit then
 		self.FootStatus = 2
 	end
 end
 
---Automatically moves the feet so they don't stretch out too much
---This function really needs to be improved, i just don't know how to make the movement better without animations
+-- Automatically moves the feet so they don't stretch out too much
+-- This function really needs to be improved, i just don't know how to make the movement better without animations
 function ENT:AutoMoveFeet()
 	if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
@@ -1263,7 +1251,7 @@ function ENT:AutoMoveFeet()
 		vecHeight = Vector(0,0,-110)
 	end
 
-	--Left side
+	-- Left side
 	local CheckPos = self:GetPos() + (self:GetRight() * -60) + (self:GetForward() * offset.x) + (self:GetRight() * offset.y) + vecHeight
 
 	local bonepos1, boneang1 = self.mech:GetBonePosition( self.mech:TranslatePhysBoneToBone( 6 ) )
@@ -1271,7 +1259,7 @@ function ENT:AutoMoveFeet()
 	self.LeftMoveDir = (CheckPos - bonepos1):GetNormalized()
 	self.LeftMoveDir.z = 0
 
-	--Right side
+	-- Right side
 	CheckPos = self:GetPos() + (self:GetRight() * 60) + (self:GetForward() * offset.x) + (self:GetRight() * offset.y) + vecHeight
 
 	local bonepos2, boneang2 = self.mech:GetBonePosition( self.mech:TranslatePhysBoneToBone( 12 ) )
@@ -1280,7 +1268,7 @@ function ENT:AutoMoveFeet()
 	self.RightMoveDir.z = 0
 
 	if self.FootStatus > 0 then
-		--Left foot
+		-- Left foot
 		if self.FootStatus == 3 or self.FootStatus == 1 then
 
 			if self.DontMoveLeftDel < CurTime() then
@@ -1292,7 +1280,7 @@ function ENT:AutoMoveFeet()
 			end
 		end
 
-		--Right foot
+		-- Right foot
 		if self.FootStatus == 3 or self.FootStatus == 2 then
 
 			if self.DontMoveRightDel < CurTime() then
@@ -1305,8 +1293,8 @@ function ENT:AutoMoveFeet()
 		end
 	end
 
-	--Should we move the left or the right foot?
-	if self.MoveLeftDel > CurTime() && self.MoveRightDel > CurTime() then
+	-- Should we move the left or the right foot?
+	if self.MoveLeftDel > CurTime() and self.MoveRightDel > CurTime() then
 		if self.RightMoveDist < self.LeftMoveDist then
 			self.MoveRightDel = CurTime()
 			self.DontMoveRightDel = CurTime()
@@ -1316,8 +1304,8 @@ function ENT:AutoMoveFeet()
 		end
 	end
 
-	--Moving right foot
-	if self.MoveLeftDel > CurTime() && (self.FootStatus == 2 or self.FootStatus == 3) then
+	-- Moving right foot
+	if self.MoveLeftDel > CurTime() and (self.FootStatus == 2 or self.FootStatus == 3) then
 		if self.DontMoveLeftDel <= CurTime() then
 			local vel = self.LeftMoveDist
 
@@ -1325,7 +1313,7 @@ function ENT:AutoMoveFeet()
 				vel = 150
 			end
 
-			--Playing a fancy servo sound
+			-- Playing a fancy servo sound
 			local pitch = 200 - vel
 			local vol = vel * 0.5 + 50
 			self:EmitSound("combine mech/servoMove.mp3",vol,pitch)
@@ -1337,8 +1325,8 @@ function ENT:AutoMoveFeet()
 		physObj:ApplyForceCenter( Vector(0, 0, 50 + self.LeftMoveDist * 1.3) + (self.LeftMoveDir * self.LeftMoveDist * 1.2) + vel)
 	end
 
-	--Moving left foot
-	if self.MoveRightDel > CurTime() && (self.FootStatus == 1 or self.FootStatus == 3) then
+	-- Moving left foot
+	if self.MoveRightDel > CurTime() and (self.FootStatus == 1 or self.FootStatus == 3) then
 		if self.DontMoveRightDel <= CurTime() then
 			local vel = self.RightMoveDist
 
@@ -1346,7 +1334,7 @@ function ENT:AutoMoveFeet()
 				vel = 150
 			end
 
-			--Playing a fancy servo sound
+			-- Playing a fancy servo sound
 			local pitch = 200 - vel
 			local vol = vel * 0.5 + 50
 			self:EmitSound("combine mech/servoMove.mp3",vol,pitch)
@@ -1359,8 +1347,8 @@ function ENT:AutoMoveFeet()
 	end
 end
 
---This function manages the keepUpRight constraint
---it also disables and enables gravity on the mechs legs
+-- This function manages the keepUpRight constraint
+-- it also disables and enables gravity on the mechs legs
 function ENT:Steady()
 	if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
@@ -1373,13 +1361,13 @@ function ENT:Steady()
 		badLeg = true
 	end
 
-	if self.keepUpRightCon == NULL && (self.FootStatus > 0 or self.flyHeight > 0 or self.JetPlay == true) && badLeg == false && (self.DotProd >= 0.7 or self.JetPlay == true) && (self:WaterLevel() == 0 or self.flyHeight > 0) then
+	if self.keepUpRightCon == NULL and (self.FootStatus > 0 or self.flyHeight > 0 or self.JetPlay == true) and badLeg == false and (self.DotProd >= 0.7 or self.JetPlay == true) and (self:WaterLevel() == 0 or self.flyHeight > 0) then
 		self.keepUpRightCon = constraint.Keepupright( self.keepUpRightProp, self.StabAng, 0, 100000000 )
 		self.mech:GetPhysicsObjectNum(3):EnableGravity(false)
 		self.mech:GetPhysicsObjectNum(4):EnableGravity(false)
 		self.mech:GetPhysicsObjectNum(9):EnableGravity(false)
 		self.mech:GetPhysicsObjectNum(10):EnableGravity(false)
-	elseif self.keepUpRightCon ~= NULL && (self.FootStatus == 0 or badLeg == true or self:WaterLevel() >= 1) && self.flyHeight == 0 && self.JetTimer < CurTime() then
+	elseif self.keepUpRightCon ~= NULL and (self.FootStatus == 0 or badLeg == true or self:WaterLevel() >= 1) and self.flyHeight == 0 and self.JetTimer < CurTime() then
 		self.keepUpRightCon:Remove()
 		self.keepUpRightCon = NULL
 		self.mech:GetPhysicsObjectNum(3):EnableGravity(true)
@@ -1389,8 +1377,8 @@ function ENT:Steady()
 	end
 end
 
---Makes the mech pelvis move between the legs
---That sounded a bit wrong. :/
+-- Makes the mech pelvis move between the legs
+-- That sounded a bit wrong. :/
 function ENT:Stabilize()
 	if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
@@ -1403,9 +1391,9 @@ function ENT:Stabilize()
 	self:GetPhysicsObject():ApplyForceCenter( dir * 5000 )
 end
 
---Directing the mech pelvis in the players aim vector
+-- Directing the mech pelvis in the players aim vector
 function ENT:DirectMech()
-	if self.User ~= NULL && self.User:InVehicle() then
+	if self.User ~= NULL and self.User:InVehicle() then
 		if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
 		--This will smooth out the movement
@@ -1430,9 +1418,9 @@ function ENT:DirectMech()
 	end
 end
 
---Directing the mech head in the players aim vector
+-- Directing the mech head in the players aim vector
 function ENT:DirectHead()
-	if self.User && self.User ~= nil && self.User:IsValid() && self.User ~= NULL && self.User:InVehicle() then
+	if self.User and self.User ~= nil and self.User:IsValid() and self.User ~= NULL and self.User:InVehicle() then
 		if not self.mech or self.mech == NULL or self.mech == nil then return false end
 
 		--This will smooth out the movement
@@ -1470,34 +1458,34 @@ function ENT:IsMechPart(v)
 
 	-- Check the parent if we get this far
 	local parent = v:GetParent()
-	if IsValid(parent) && parent ~= v then
+	if IsValid(parent) and parent ~= v then
 		return self:IsMechPart(parent)
 	end
 
 	return false
 end
 
---All shield thingys happens here
+-- All shield thingys happens here
 function ENT:Shield()
-	--Energy must be above 0
+	-- Energy must be above 0
 	if self.Energy <= 0 then return end
 	if not IsValid(self.mech) then return false end
 
-	--Getting all ents
+	-- Getting all ents
 	for k, v in pairs(ents.FindInSphere( self:GetPos(), 150 )) do
-		--These things are hidden in the player
-		--We don't want the shield to react to them
-		if IsValid(v) && not( v:IsPlayer()) && not(v:IsWeapon()) && not(string.find(v:GetClass(), "predicted_viewmodel")) && not(string.find(v:GetClass(), "physgun_beam")) then
+		-- These things are hidden in the player
+		-- We don't want the shield to react to them
+		if IsValid(v) and not( v:IsPlayer()) and not(v:IsWeapon()) and not(string.find(v:GetClass(), "predicted_viewmodel")) and not(string.find(v:GetClass(), "physgun_beam")) then
 
-			--The shield should ignore it's own parts
+			-- The shield should ignore it's own parts
 			if not self:IsMechPart(v) then
 				local vel = v:GetVelocity():Length()
 				local dir1 = v:GetVelocity():GetNormalized()
 				local dir = (v:GetPos() - self:GetPos()):GetNormalized()
 				local dot = dir:Dot(dir1)
 
-				if dot < 0 && vel > 500 then
-					--Some ents that aren't phys objects needs to be handles separatly
+				if dot < 0 and vel > 500 then
+					-- Some ents that aren't phys objects needs to be handles separatly
 					if v:GetClass()=="rpg_missile" then
 						self.Energy = self.Energy - 20
 						v:SetLocalVelocity(dir * vel * 1000 + Vector(0,0,10000))
@@ -1561,7 +1549,7 @@ function ENT:Shield()
 						self:EmitSound("combine mech/shieldHit.mp3",85,math.random(80,120))
 					end
 
-					--The shield is down D:
+					-- The shield is down D:
 					if self.Energy <= 0 then
 						self.Energy = -50
 						self:EmitSound("combine mech/ShieldDown.wav",85,math.random(80,120))
@@ -1640,8 +1628,8 @@ end
 
 function ENT:ShootBullet()
 	self:EmitSound("weapons/ar1/ar1_dist"..math.random(1,2)..".wav",75,math.random(80,120))
-	--"weapons/ar1/ar1_dist"..math.random(1,2)..".wav"
-	--"npc/strider/strider_minigun"..math.random(1,2)..".wav"
+	-- "weapons/ar1/ar1_dist"..math.random(1,2)..".wav"
+	-- "npc/strider/strider_minigun"..math.random(1,2)..".wav"
 
 	local pos = self.keepUpRightProp:GetPos() + self.keepUpRightProp:GetForward() * 50 + Vector(0,0,-20)
 
@@ -1756,7 +1744,7 @@ end
 
 function ENT:FixPropProtection(ply)
 	self.Spawner = ply
-	--ASS prop protection
+	-- ASS prop protection
 	self:SetNWEntity("ASS_Owner", ply)
 	self:SetVar( "ASS_Owner", ply )
 	self:SetVar("ASS_OwnerOverride", true)
@@ -1769,7 +1757,7 @@ function ENT:FixPropProtection(ply)
 	self.keepUpRightProp:SetVar( "ASS_Owner", ply )
 	self.keepUpRightProp:SetVar("ASS_OwnerOverride", true)
 
-	--Falcos prop protection
+	-- Falcos prop protection
 	-- self:GetOwner() = ply
 	-- self:GetOwner()ID = ply:SteamID()
 	-- self:GetOwner()ID = ply:SteamID()
@@ -1780,7 +1768,7 @@ function ENT:FixPropProtection(ply)
 	self.keepUpRightProp.Owner = ply
 	self.keepUpRightProp.OwnerID = ply:SteamID()
 
-	--UPS prop protection
+	-- UPS prop protection
 	gamemode.Call( "UPSAssignOwnership", ply, self )
 	gamemode.Call( "UPSAssignOwnership", ply, self.mech )
 	gamemode.Call( "UPSAssignOwnership", ply, self.keepUpRightProp )
