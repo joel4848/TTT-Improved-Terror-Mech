@@ -119,7 +119,7 @@ end
 
 -------------------------------------------PHYS COLLIDE
 function ENT:PhysicsCollide(data, phys)
-	if self.Activated == false && self.ActivateDel < CurTime() then
+	if self.Activated == false and self.ActivateDel < CurTime() then
 		self:StartCountdown()
 	end
 end
@@ -129,7 +129,7 @@ function ENT:PhysicsUpdate(physObj)
 	if not IsValid(physObj) then return end
 
 	--Sparks, yay!
-	if self.TeslaDel < CurTime() && IsValid(self.TeslaEff) then
+	if self.TeslaDel < CurTime() and IsValid(self.TeslaEff) then
 		self.TeslaDel = CurTime() + 0.1
 		self.TeslaEff:Fire( "DoSpark","",0 )
 	end
@@ -164,11 +164,11 @@ function ENT:PhysicsUpdate(physObj)
 
 	local dist = self.DestPos:Distance(self:GetPos())
 
-	if dist < 100 && self.Activated == false then
+	if dist < 100 and self.Activated == false then
 		self:StartCountdown()
 	end
 
-	if self.Activated == true && self.ActiveTime > CurTime() then
+	if self.Activated == true and self.ActiveTime > CurTime() then
 		local percent = (CurTime() - self.StartTime) / self.TimeAdd
 
 		physObj:SetVelocity(physObj:GetVelocity() * 0.1)
@@ -212,7 +212,7 @@ function ENT:PhysicsUpdate(physObj)
 			end
 		end
 
-	elseif self.Activated == true && self.ActiveTime < CurTime() then
+	elseif self.Activated == true and self.ActiveTime < CurTime() then
 		self:Remove()
 	end
 end

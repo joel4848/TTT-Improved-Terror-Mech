@@ -8,12 +8,12 @@ hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov
 
 	local useCam = ply:GetNWInt("ControlsCombineMech")
 
-	if (useCam && useCam == 1 or useCam == 2) && ply:InVehicle() then
+	if (useCam and useCam == 1 or useCam == 2) and ply:InVehicle() then
 
 		local ent = ply:GetNWEntity( "CombineMechEnt" )
 		local saw = ply:GetNWEntity( "CombineMechSawEnt" )
 
-		if ent ~= NULL && ent:IsValid() then
+		if ent ~= NULL and ent:IsValid() then
 
 			if useCam == 1 then
 				local pos = ent:GetPos() + (angles:Forward() * -300)
@@ -44,7 +44,7 @@ hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov
 		end
 	end
 
-	if (useCam && useCam == 1 or useCam == 2) && not(ply:InVehicle()) then
+	if (useCam and useCam == 1 or useCam == 2) and not(ply:InVehicle()) then
 		ply:SetNWInt("ControlsCombineMech",0)
 	end
 end)

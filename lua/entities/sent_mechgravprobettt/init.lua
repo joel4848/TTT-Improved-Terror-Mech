@@ -76,9 +76,9 @@ end
 function ENT:PhysicsCollide( data, phys )
 	local ent = data.HitEntity
 
-	if ent && ent:IsValid() then
+	if ent and ent:IsValid() then
 		timer.Simple(0, function()
-			if IsValid(self) && IsValid(ent) then
+			if IsValid(self) and IsValid(ent) then
 				constraint.NoCollide( self, ent, 0,0 )
 			end
 		end)
@@ -128,15 +128,15 @@ function ENT:PhysicsUpdate(physObj)
 
 			if dontUse == false then
 
-				if v:GetClass()=="rpg_missile" && dist > 200 then
+				if v:GetClass()=="rpg_missile" and dist > 200 then
 					v:SetLocalVelocity(dir * speed * 1000)
 					v:SetAngles(dir:Angle())
-				elseif (v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette") && dist > 200 then
+				elseif (v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette") and dist > 200 then
 					v:SetLocalVelocity(dir * speed * 1000)
-				elseif  string.find(v:GetClass(), "missile") && dist > 200 && IsValid(phys) then
+				elseif  string.find(v:GetClass(), "missile") and dist > 200 and IsValid(phys) then
 					v:SetAngles(dir:Angle())
 					phys:SetVelocity(dir * speed * 0.5)
-				elseif (v:IsPlayer() or v:IsNPC()) && IsValid(phys) then
+				elseif (v:IsPlayer() or v:IsNPC()) and IsValid(phys) then
 					v:SetVelocity(dir * force * 400 )
 
 					if dist > 200 then

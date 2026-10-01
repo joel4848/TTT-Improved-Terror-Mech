@@ -61,7 +61,7 @@ end
 function ENT:PhysicsCollide(data, phys)
 	ent = data.HitEntity
 
-	if self.ActivateDel < CurTime() && self.killed == false then
+	if self.ActivateDel < CurTime() and self.killed == false then
 		self:Explode()
 	elseif self.killed == false then
 		self.killed = true
@@ -80,7 +80,7 @@ function ENT:PhysicsUpdate(physics)
 		phys:SetVelocity(veloc)
 		phys:ApplyForceCenter(self:GetForward() * 40000 )
 
-		if self.MissileTime > CurTime() && self.ActivateDel < CurTime() && self.DestPos != nil && self.DestPos && self.DestPos != NULL then
+		if self.MissileTime > CurTime() and self.ActivateDel < CurTime() and self.DestPos != nil and self.DestPos and self.DestPos != NULL then
 
 			local AimVec = (self.DestPos - self:GetPos() ):Angle()
 			local Dist = (math.min(self:GetPos():Distance(self.DestPos), 5000)) / 5000

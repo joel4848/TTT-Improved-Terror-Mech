@@ -34,7 +34,7 @@ function ENT:Use( activator, caller )
 	if self.enterDel < CurTime() then
 		local ent = self:GetNWEntity("CombineMechEnt")
 
-		if ent && ent != NULL then
+		if ent and ent != NULL then
 			ent:EnterMech(activator)
 			self.enterDel = CurTime() + 1
 		end

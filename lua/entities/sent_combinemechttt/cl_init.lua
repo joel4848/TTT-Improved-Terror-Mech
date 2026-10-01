@@ -41,7 +41,7 @@ end
 function ENT:GetEmitter( Pos, b3D )
 
 	if ( self.Emitter ) then
-		if ( self.EmitterIs3D == b3D && self.EmitterTime > CurTime() ) then
+		if ( self.EmitterIs3D == b3D and self.EmitterTime > CurTime() ) then
 			return self.Emitter
 		end
 	end
