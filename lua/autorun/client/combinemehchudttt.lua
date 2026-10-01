@@ -1,422 +1,414 @@
--- include( "combinemehchudTTT.lua" )
+local textures = {
+	hudBg 		= surface.GetTextureID("combinemechhud/hud"),
+	hudBroken 	= surface.GetTextureID("combinemechhud/broken"),
+	hudStatic 	= surface.GetTextureID("combinemechhud/static"),
+	wepConsole 	= surface.GetTextureID("combinemechhud/wepConsole"),
+	crosshair1 	= surface.GetTextureID("combinemechhud/aim1"),
+	crosshair2 	= surface.GetTextureID("combinemechhud/aim2"),
+	weaponIcons = {
+		surface.GetTextureID("combinemechhud/turretIco"),
+		surface.GetTextureID("combinemechhud/screamerIco"),
+		surface.GetTextureID("combinemechhud/gravIco")
+	}
+}
 
-local bgTex = surface.GetTextureID("combinemechhud/hud")
-local brokenTex = surface.GetTextureID("combinemechhud/broken")
+local colours = {
+	white            = Color(255, 255, 255, 255),
+	whiteAlpha       = Color(255, 255, 255, 180),
+	combineBlue      = Color(120, 200, 255, 255),
+	combineBlueAlpha = Color(120, 200, 255, 160),
+	darkBg           = Color(10, 15, 20, 200),
+	barBorder        = Color(120, 200, 255, 220),
 
-local heatBg =  surface.GetTextureID("combinemechhud/HeatBg")
-local heat1Tex = surface.GetTextureID("combinemechhud/heat1")
-local heat2Tex = surface.GetTextureID("combinemechhud/heat2")
-local targetTex = surface.GetTextureID("combinemechhud/target")
+	-- Heat bar fill colours
+	heatCool 	 = Color(120, 200, 255, 220),
+	heatWarning  = Color(255, 160, 40, 220),
+	heatCritical = Color(255, 50, 50, 220),
 
-local cross1 = surface.GetTextureID("combinemechhud/aim1")
-local cross2 = surface.GetTextureID("combinemechhud/aim2")
+	-- Target colours
+	targetPlayer = Color(50, 255, 120, 220),
+	targetNpc 	 = Color(255, 60, 60, 220)
+}
 
-local staticTex = surface.GetTextureID("combinemechhud/static")
+local fontSize = math.Round(ScrH() * 0.033)
 
-local wepConsoleTex = surface.GetTextureID("combinemechhud/wepConsole")
+surface.CreateFont("CombineHudText", {
+	font      = "Agency FB",
+	size      = fontSize,
+	weight    = 600,
+	antialias = true
+})
 
-local wepType = {"Turret","Screamer","Grav Probe"}
-local wepIcoTex = {surface.GetTextureID("combinemechhud/turretIco"), surface.GetTextureID("combinemechhud/screamerIco"),surface.GetTextureID("combinemechhud/gravIco")}
+surface.CreateFont("CombineHudSmall", {
+	font      = "Agency FB",
+	size      = math.Round(fontSize * 0.65),
+	weight    = 600,
+	antialias = true
+})
 
-local rot1 = 0
-local rot2 = 0
-local rot3 = 0
+local weaponNames       = {"Turret", "Screamer", "Grav Probe"}
+local crosshairRotation = 0
+local lastHealth        = 100
+local noiseEndTime      = 0
+local noiseStartTime    = 0
+local previousWeapon    = 1
 
-local size = ScrH() * 0.03333333
-local lastHp = 100
-local noiseTime = CurTime()
-local startNoiseTime = 0
-local oldWep = 1
+local function drawNoiseBoxes(count, scrW, scrH)
+	for i = 1, count do
+		local xPos    	 = math.Rand(1, scrW)
+		local yPos    	 = math.Rand(1, scrH)
+		local xSize   	 = math.Rand(1, scrW * 0.05)
+		local ySize   	 = math.Rand(1, scrH * 0.05)
+		local randomGrey = math.Rand(1, 255)
 
--- surface.CreateFont( "Agency FB", size, 200, 0, 0, "comHudText")
-surface.CreateFont( "comHudText", {
-	size = size,
-	weight = 200,
-	font = "Agency FB",
-	antialias = false
-} )
-
---Local funcs
-local MakeNoise = function(nr)
-
-	for i = 1,nr  do
-
-		local xPos = math.Rand(1,ScrW())
-		local yPos = math.Rand(1,ScrH())
-		local xSize = math.Rand(1, ScrW() / 20)
-		local ySize = math.Rand(1, ScrH() / 20)
-
-		local colr = math.Rand(1,255)
-
-		local newCol = Color(colr,colr,colr,math.Rand(1,255))
-
-		draw.RoundedBox( 0, xPos, yPos, xSize, ySize, newCol)
+		draw.RoundedBox(0, xPos, yPos, xSize, ySize, Color(randomGrey, randomGrey, randomGrey, math.Rand(1, 255)))
 	end
-
 end
 
-local MakeNoiseLines = function(nr)
-	for i = 1,nr  do
-		local hojd = math.Rand(1,ScrW())
-		local colr = math.Rand(1,255)
-		surface.SetDrawColor( colr, colr, colr, math.Rand(1,255) )
-		surface.DrawLine( 0,hojd, ScrW(),hojd)
+local function drawNoiseLines(count, scrW, scrH)
+	for i = 1, count do
+		local yPos = math.Rand(1, scrH)
+		local randomGrey = math.Rand(1, 255)
+
+		surface.SetDrawColor(randomGrey, randomGrey, randomGrey, math.Rand(1, 255))
+		surface.DrawLine(0, yPos, scrW, yPos)
 	end
 end
 
+local function drawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, bgColour)
+	-- Background
+	draw.RoundedBox(0, x, y, w, h, bgColour or colours.darkBg)
 
-----------DRAW
-function DrawHud()
+	-- Fill
+	local fillW = math.Clamp(w * fraction, 0, w)
+	if fillW > 0 then
+		draw.RoundedBox(0, x, y, fillW, h, fillColour)
+	end
 
-	if not LocalPlayer():Alive() then return end
-	if(LocalPlayer():GetActiveWeapon() == NULL or LocalPlayer():GetActiveWeapon() == "Camera" or not(LocalPlayer():InVehicle())) then return end
-	if GetViewEntity() ~= LocalPlayer() then return end
+	-- Outline
+	surface.SetDrawColor(borderColour.r, borderColour.g, borderColour.b, borderColour.a)
+	surface.DrawOutlinedRect(x, y, w, h, 1)
+end
 
+local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
+	local function renderBox(targetEnt, colour, titleText)
+		if not IsValid(targetEnt) or targetEnt == ply or targetEnt == ply:GetVehicle() then return end
+		if targetEnt:IsPlayer() and ((not targetEnt:Alive()) or targetEnt:IsSpec()) then return end
+
+		local centerPos = targetEnt:WorldSpaceCenter()
+		local distance 	= eyePos:Distance(centerPos)
+		if distance > maxDistance then return end
+
+		-- Only show boxes if player/NPC is visible
+		local tr = util.TraceLine({
+						start = eyePos,
+						endpos = centerPos,
+						filter = { ply, ply:GetVehicle(), targetEnt }
+		})
+
+		if tr.Hit then return end
+
+		-- Get the corners of the entity's bounding box
+		local mins, maxs = targetEnt:OBBMins(), targetEnt:OBBMaxs()
+		local corners = {
+			Vector(mins.x, mins.y, mins.z), Vector(mins.x, mins.y, maxs.z),
+			Vector(mins.x, maxs.y, mins.z), Vector(mins.x, maxs.y, maxs.z),
+			Vector(maxs.x, mins.y, mins.z), Vector(maxs.x, mins.y, maxs.z),
+			Vector(maxs.x, maxs.y, mins.z), Vector(maxs.x, maxs.y, maxs.z)
+		}
+
+		local minX    = math.huge
+		local minY    = math.huge
+		local maxX    = -math.huge
+		local maxY    = -math.huge
+		local minX2nd = math.huge
+		local maxX2nd = -math.huge
+
+		local visibleOnScreen = false
+
+		for i = 1, 8 do
+			local worldPt = targetEnt:LocalToWorld(corners[i])
+			local screenPt = worldPt:ToScreen()
+
+			if screenPt.visible then
+				visibleOnScreen = true
+			end
+
+			-- Box is too wide using the smallest/largest x coordinates, so we want the 2nd smallest/largest instead
+			if screenPt.x < minX then
+				minX2nd = minX
+				minX = screenPt.x
+			elseif screenPt.x < minX2nd then
+				minX2nd = screenPt.x
+			end
+
+			if screenPt.x > maxX then
+				maxX2nd = maxX
+				maxX = screenPt.x
+			elseif screenPt.x > maxX2nd then
+				maxX2nd = screenPt.x
+			end
+
+			if screenPt.y < minY then minY = screenPt.y end
+			if screenPt.y > maxY then maxY = screenPt.y end
+		end
+
+		if not visibleOnScreen then return end
+
+		local padding = 0
+		local x = minX2nd - padding
+		local y = minY - padding
+		local w = (maxX2nd - minX2nd) + (padding * 2)
+		local h = (maxY - minY) + (padding * 2)
+
+		-- Inner colour rectangle
+		surface.SetDrawColor(colour.r, colour.g, colour.b, colour.a or 255)
+		surface.DrawOutlinedRect(x, y, w, h)
+
+		-- Outer black border (+1px)
+		surface.SetDrawColor(0, 0, 0, 220)
+		surface.DrawOutlinedRect(x - 1, y - 1, w + 2, h + 2)
+
+		-- Inner black border (-1px)
+		surface.SetDrawColor(0, 0, 0, 220)
+		surface.DrawOutlinedRect(x + 1, y + 1, w - 2, h - 2)
+
+		-- Text labels
+		local shadowCol = Color(0, 0, 0, 240)
+		local centerX 	= x + (w / 2)
+
+		-- Name
+		draw.SimpleText(titleText, "CombineHudSmall", centerX + 1, y - 13, shadowCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+		draw.SimpleText(titleText, "CombineHudSmall", centerX, 	   y - 14, colour, 	  TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+
+		-- Distance
+		local distText = math.Round(distance * 0.0254) .. "m"
+		draw.SimpleText(distText, "CombineHudSmall", centerX + 1, y + h + 5, shadowCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+		draw.SimpleText(distText, "CombineHudSmall", centerX, 	  y + h + 4, colour, 	TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+	end
+
+	-- Target Players
+	for _, p in ipairs(player.GetAll()) do
+		if p ~= ply and p:Alive() and not p:IsSpec() then
+			renderBox(p, colours.targetPlayer, p:Nick())
+		end
+	end
+
+	-- Target NPCs
+	for _, npc in ipairs(ents.FindByClass("npc_*")) do
+		if IsValid(npc) and npc:Health() > 0 then
+			local npcClass = npc:GetClass():sub(5):upper()
+			renderBox(npc, colours.targetNpc, npcClass)
+		end
+	end
+end
+
+-- HUD drawy bits
+local function drawHud()
 	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() or not ply:InVehicle() then return end
+	if GetViewEntity() ~= ply then return end
 
-	local useCam = ply:GetNWInt("ControlsCombineMech")
-	local ent = ply:GetNWEntity( "CombineMechEnt" )
-	local wep = 0
-	local hp = 0
+	local controlState = ply:GetNWInt("ControlsCombineMech", 0)
+	if controlState <= 0 then return end
 
-	if useCam > 0 then
-		wep = ply:GetNWInt("combineMechWeapon")
-		hp = ply:GetNWFloat("combineMechHealth")
+	local mechEnt 		= ply:GetNWEntity("CombineMechEnt")
+	local currentWeapon = ply:GetNWInt("combineMechWeapon", 1)
+	local healthPercent = ply:GetNWFloat("combineMechHealth", 1)
+	local scrW, scrH 	= ScrW(), ScrH()
+
+	-- Distortion for impact/low health
+	local healthVal = healthPercent * 100
+
+	if healthVal < 49 then
+		local lineCount = math.Round(math.Rand(1, 50 - healthVal))
+		drawNoiseLines(lineCount, scrW, scrH)
+
+		if healthVal < 24 then
+			local boxCount = math.Round(math.Rand(1, 25 - healthVal))
+			drawNoiseBoxes(boxCount, scrW, scrH)
+		end
 	end
 
-	if useCam == 2 and ent ~= NULL then
-
-		local Width = ScrW()
-		local Height = ScrH()
-
-
-		--Detecting aspekt ratio
-		local ScreenType = 1
-
-		--ScreenType = 1  16:10
-		--ScreenType = 2  4:3
-		--ScreenType = 3  16:9
-		if (Width / Height) > (16/10) then
-			ScreenType = 3
-		elseif (Width / Height) <= (4/3) then
-			ScreenType = 2
-		end
-
-
-		local sh = ply:GetNWFloat("combineMechShield")
-		local heat = ply:GetNWInt("combineMechHeat")
-		local fly = ply:GetNWEntity( "combineMechFlyHeight" )
-
-		local col = heat
-		heat = math.Round(heat * 100)
-		local newHp = hp * 100
-
-		local xPos = 0
-		local yPos = 0
-		local xSize = 0
-		local ySize = 0
-
-		--Disturbence, static and noise
-		if newHp < 49 then
-
-			local nr = math.Round(math.Rand(1, 50 - newHp))
-			MakeNoiseLines(nr)
-
-			if newHp < 24 then
-				nr = math.Round(math.Rand(1, 25 - newHp))
-				MakeNoise(nr)
-			end
-		end
-
-
-
-		if noiseTime > CurTime() then
-			local perc = 1 - ((startNoiseTime - (noiseTime - CurTime())) / startNoiseTime)
-
-			MakeNoise(perc * 100)
-			MakeNoiseLines(perc * 100)
-
-			local alph      = (perc * 100) + math.Rand(1,50)
-			local maxSizeX  = (math.Rand(1, Width / 2))
-			local maxSizeY  = (math.Rand(1, Height / 2))
-			local maxSizeX2 = (math.Rand(1, Width / 2))
-			local maxSizeY2 = (math.Rand(1, Height / 2))
-
-			xPos = maxSizeX * -1
-			yPos = maxSizeY * -1
-			xSize = Width + maxSizeX + maxSizeX2
-			ySize = Height + maxSizeY + maxSizeY2
-
-			surface.SetTexture( staticTex )
-			surface.SetDrawColor( 255, 255, 255, alph )
-			surface.DrawTexturedRect( xPos, yPos, xSize, ySize )
-		end
-
-		--Height thingys
-		local PosHeight = ent:GetPos()
-		local nrOfRows = 10
-
-		for i = 1, nrOfRows do
-
-			xPos = Width * 0.0238095238
-			yPos = ((ScrH() / nrOfRows) * i) + PosHeight.z
-			xSize = Width * 0.0238095238
-			ySize = Height * 0.019047619
-
-			if yPos > Height then
-				k, f = math.modf(yPos/Height)
-				yPos = yPos - ( k * Height)
-			end
-
-			draw.RoundedBox( 2, xPos, yPos, xSize, ySize, Color(255,255,255,255))
-		end
-
-		for i = 1, nrOfRows do
-
-			xPos = Width * 0.9523809524
-			yPos = ((ScrH() / nrOfRows) * i) + PosHeight.z
-			xSize = Width * 0.0238095238
-			ySize = Height * 0.019047619
-
-			if yPos > Height then
-				k, f = math.modf(yPos/Height)
-				yPos = yPos - ( k * Height)
-			end
-
-			draw.RoundedBox( 2, xPos, yPos, xSize, ySize, Color(255,255,255,255))
-		end
-
-
-		--Horizontal Line
-		surface.SetDrawColor( 120, 200, 255, 255 )
-		local offset = ent:GetRight():Dot(Vector(0,0,1))
-		local left = (ScrH() / 2) - offset * ScrH()
-		local right = (ScrH() / 2) + offset * ScrH()
-		surface.DrawLine( 0,left, ScrW(),right)
-
-		surface.SetTexture( bgTex )
-		surface.SetDrawColor( 255, 255, 255, 255 )
-		surface.DrawTexturedRect( 0, 0, Width, Height )
-
-		--This will paint circles around players and NPC's
-		--It was a little bit annoying and didn't look so good so i commented it.
-		--[[
-		--Drawing targets
-		surface.SetTexture( targetTex )
-		surface.SetDrawColor( 50, 255, 50, 255 )
-
-		--Players
-		local maxDist = 2000
-		for k, v in pairs(player.GetAll()) do
-			local size = ent:GetPos():Distance(v:GetPos())
-
-			if size <= maxDist then
-
-				local pos = v:GetPos():ToScreen()
-				size = (maxDist - size) / 2
-				size = math.Clamp(size, 0, 70)
-
-				pos.x = pos.x - (size / 2)
-				pos.y = pos.y - (size / 2)
-
-				surface.DrawTexturedRect( pos.x, pos.y, size, size )
-			end
-		end
-
-		--NPC's
-		surface.SetDrawColor( 255, 0, 0, 255 )
-		for k, v in pairs(ents.FindByClass("npc_*")) do
-			local size = ent:GetPos():Distance(v:GetPos())
-
-			if size <= maxDist then
-				local pos = v:GetPos():ToScreen()
-				size = (maxDist - size) / 2
-				size = math.Clamp(size, 0, 70)
-				pos.x = pos.x - (size / 2)
-				pos.y = pos.y - (size / 2)
-
-				surface.DrawTexturedRect( pos.x, pos.y, size, size )
-			end
-		end
-		]]--
-
-		local rColHeat = 255 - ( 135 * col)
-		local gColHeat = col * 200
-		local bColHeat = col * 250
-
-		xPos = Width * 0.880952381
-		yPos = Height * 0.1904761905
-		xSize = Width * 0.1428571429
-		ySize = Height * 0.2285714286
-
-		if ScreenType == 2 then
-			xSize = Width * 0.15625
-			ySize = Height * 0.1953125
-		elseif ScreenType == 3 then
-			xSize = Width * 0.14375
-			ySize = Height * 0.255555555555
-		end
-
-		surface.SetTexture( heatBg )
-		surface.SetDrawColor( 120, 200, 255, 255 )
-		surface.DrawTexturedRectRotated( xPos, yPos, xSize, ySize, 0 )
-
-		xSize = Width * 0.130952381
-		ySize = Height * 0.2095238095
-
-		if ScreenType == 2 then
-			xSize = Width * 0.1484375
-			ySize = Height * 0.185546875
-		elseif ScreenType == 3 then
-			xSize = Width * 0.13125
-			ySize = Height * 0.23333333333333
-		end
-
-		surface.SetTexture( heat1Tex )
-		rot1 = rot1 + ((100 - heat) * 0.4) + 1
-		surface.SetDrawColor( rColHeat, gColHeat, bColHeat, 255 )
-		surface.DrawTexturedRectRotated( xPos, yPos, xSize, ySize, rot1 )
-
-		surface.SetTexture( heat2Tex )
-		rot2 = rot2 - ((100 - heat) * 0.5) - 2
-		surface.SetDrawColor(rColHeat * 0.7, gColHeat * 0.7, bColHeat * 0.7, 100 + (150 * col))
-		surface.DrawTexturedRectRotated( xPos, yPos, xSize, ySize, rot2 )
-
-		--HP
-		xPos = Width * 0.6976190476
-		yPos = Height * 0.94
-		xSize = ((Width * 0.280952381) * hp)
-		ySize = Height * 0.0228571429
-		draw.RoundedBox( 0, xPos, yPos, xSize, ySize, Color(255,255,255,255))
-
-		xPos = Width * 0.0178571429
-		yPos = Height * 0.94
-		xSize = ((Width * 0.280952381) * sh)
-		ySize = Height * 0.0228571429
-		--Shield
-		draw.RoundedBox( 0, xPos, yPos, xSize, ySize, Color(255,255,255,255))
-		--draw.RoundedBox( Number Bordersize, Number X, Number Y, Number Width, Number Height, Color Color )
-
-		--crosshair
-		local rColCrosshair = 255 - ( 135 * (1-(fly / 1000)))
-		local gColCrosshair = (1-(fly / 1000)) * 200
-		local bColCrosshair = (1-(fly / 1000)) * 250
-
-		surface.SetDrawColor( rColCrosshair, gColCrosshair, bColCrosshair, 255 )
-
-		local rot4 = (1-(fly / 1000)) * 100
-
-		surface.SetTexture( cross1 )
-		xSize = Width * 0.119047619
-		ySize = Height * 0.1904761905
-
-		if ScreenType == 2 then
-			xSize = Width * 0.15234375
-			ySize = Height * 0.1904296875
-		elseif ScreenType == 3 then
-			xSize = Width * 0.125
-			ySize = Height * 0.22222222222222
-		end
-
-		surface.DrawTexturedRectRotated(ScrW() / 2, ScrH() / 2, xSize, ySize, rot4)
-
-		surface.SetDrawColor( 120, 200, 255, 255 )
-		surface.SetTexture( cross2 )
-		xSize = Width * 0.119047619
-		ySize = Height * 0.1904761905
-
-		if ScreenType == 2 then
-			xSize = Width * 0.15234375
-			ySize = Height * 0.1904296875
-		elseif ScreenType == 3 then
-			xSize = Width * 0.125
-			ySize = Height * 0.22222222222222
-		end
-
-		surface.DrawTexturedRectRotated(ScrW() / 2, ScrH() / 2, xSize, ySize, rot3)
-		rot3 = rot3 + 0.1
-
+	local currentTime = CurTime()
+	if lastHealth ~= healthVal then
+		noiseStartTime = math.abs(lastHealth - healthVal) / 10
+		noiseEndTime   = currentTime + noiseStartTime
+		lastHealth 	   = healthVal
 	end
 
-	if useCam > 0 then
+	if noiseEndTime > currentTime then
+		local noisePerc = 1 - ((noiseEndTime - currentTime) / noiseStartTime)
+		drawNoiseBoxes(math.Round(noisePerc * 50), scrW, scrH)
+		drawNoiseLines(math.Round(noisePerc * 50), scrW, scrH)
 
-		local newHp = hp * 100
+		local staticAlpha = (noisePerc * 100) + math.Rand(1, 50)
+		local offsetX 	  = math.Rand(1, scrW * 0.2)
+		local offsetY 	  = math.Rand(1, scrH * 0.2)
 
-		if lastHp ~= newHp then
-			startNoiseTime = ((lastHp - newHp) / 10)
+		surface.SetTexture(textures.hudStatic)
+		surface.SetDrawColor(255, 255, 255, staticAlpha)
+		surface.DrawTexturedRect(-offsetX, -offsetY, scrW + (offsetX * 2), scrH + (offsetY * 2))
+	end
 
-			if noiseTime > CurTime() then
-				noiseTime = noiseTime + startNoiseTime
-			else
-				noiseTime = CurTime() + ((lastHp - newHp) / 10)
-			end
+	----------------------------------------------------------------------------
+	-- Inside the mech
+	----------------------------------------------------------------------------
+	if controlState == 2 and IsValid(mechEnt) then
+		local shieldPercent = ply:GetNWFloat("combineMechShield", 0)
+		local heatPercent   = ply:GetNWFloat("combineMechHeat", 0)
+		local flyHeight     = ply:GetNWInt("combineMechFlyHeight", 0)
 
-			lastHp = newHp
-		end
+		-- Altitude indicators
+		local worldZ     = math.Round(mechEnt:GetPos().z)
+		local rowCount   = 10
+		local rowHeight  = scrH / rowCount
+		local boxW       = scrW * 0.02
+		local boxH       = scrH * 0.015
+		local offsetAnim = (worldZ % 100) / 100 * rowHeight
 
-		if wep ~= oldWep then
-			oldWep = wep
-			ply:EmitSound("common/wpn_moveselect.wav")
-		end
-
-		if wep and wep ~= NULL then
-			xPos = 0
-			yPos = 0
-			xSize = ScrW() * 0.2369047619
-			ySize = ScrH() * 0.2638095238
-
-			surface.SetTexture( wepConsoleTex )
-			surface.SetDrawColor( 255, 255, 255, 255 )
-			surface.DrawTexturedRect( xPos, yPos, xSize, ySize )
-
-			--Weapon
-			xPos = ScrW() * 0.130952381
-			yPos = ScrH() * 0.066666667
-			draw.SimpleText( wepType[wep], "comHudText", xPos, yPos, Color(255,255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER )
-
-
-			xPos = ScrW() * 0.0595238095
-			yPos = ScrH() * 0.1238095238
-			xSize = ScrW() * 0.0773809524
-			ySize = ScrH() * 0.1219047619
-			surface.SetTexture( wepIcoTex[wep] )
-			surface.SetDrawColor( 120, 200, 255, 255 )
-			surface.DrawTexturedRect( xPos, yPos, xSize, ySize )
-		end
-
-		if useCam == 2 then
-			hp = ply:GetNWFloat("combineMechHealth")
-
-			if hp <= 0 then
-				surface.SetTexture( brokenTex )
-				surface.SetDrawColor( 255, 255, 255, 255 )
-				surface.DrawTexturedRect( 0, 0, ScrW(), ScrH() )
+		for i = 0, rowCount do
+			local yPos = (i * rowHeight) + offsetAnim
+			if yPos <= scrH then
+				-- Left
+				draw.RoundedBox(0, scrW * 0.02, yPos, boxW, boxH, colours.whiteAlpha)
+				-- Right
+				draw.RoundedBox(0, scrW * 0.96, yPos, boxW, boxH, colours.whiteAlpha)
 			end
 		end
+
+		-- Altitude text
+		draw.SimpleText("ALT: " .. worldZ .. "m", "CombineHudSmall", scrW * 0.045, scrH * 0.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+		-- Horizon line
+		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+		local horizonOffset = mechEnt:GetRight():Dot(Vector(0, 0, 1)) * scrH
+		local leftY  = (scrH * 0.5) - horizonOffset
+		local rightY = (scrH * 0.5) + horizonOffset
+		surface.DrawLine(0, leftY, scrW, rightY)
+
+		-- HUD background texture
+		surface.SetTexture(textures.hudBg)
+		surface.SetDrawColor(255, 255, 255, 255)
+		surface.DrawTexturedRect(0, 0, scrW, scrH)
+
+		-- Horrible crosshair textures
+		local heightRatio = math.Clamp(1 - (flyHeight / 1000), 0, 1)
+		local crosshairColour = Color(
+			255 - (135 * heightRatio),
+			heightRatio * 200,
+			heightRatio * 250,
+			255
+		)
+
+		local crosshairW = scrW * 0.125
+		local crosshairH = scrH * 0.222
+		local rotFixed = heightRatio * 100
+
+		-- Inner crosshair
+		surface.SetTexture(textures.crosshair1)
+		surface.SetDrawColor(crosshairColour.r, crosshairColour.g, crosshairColour.b, 255)
+		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, rotFixed)
+
+		-- Outer crosshair
+		crosshairRotation = crosshairRotation + 0.1
+		surface.SetTexture(textures.crosshair2)
+		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
+
+		-- Shield/health bars and labels
+		local barW         = scrW * 0.28
+		local barH         = scrH * 0.022
+		local shieldX      = scrW * 0.018
+		local healthX      = scrW * 0.702
+		local shieldLabelX = scrW * 0.32
+		local healthLabelX = scrW * 0.6
+		local barY         = scrH * 0.9415
+
+		-- Shield bar & label
+		draw.SimpleText("SHIELD  [" .. math.Round(shieldPercent * 100) .. "%]", "CombineHudText", shieldLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		drawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, colours.combineBlue, colours.barBorder, colours.darkBg)
+
+		-- Health bar & label
+		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
+		draw.SimpleText("HEALTH  [" .. math.Round(healthPercent * 100) .. "%]", "CombineHudText", healthLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		drawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
+	end
+
+	drawTargetingBoxes2D(ply, EyePos(), 3000)
+
+	-- Weapon box/heat bar
+	if currentWeapon ~= previousWeapon then
+		previousWeapon = currentWeapon
+		ply:EmitSound("common/wpn_moveselect.wav")
+	end
+
+	local consoleW = scrW * 0.237
+	local consoleH = scrH * 0.264
+
+	-- Box texture
+	surface.SetTexture(textures.wepConsole)
+	surface.SetDrawColor(255, 255, 255, 255)
+	surface.DrawTexturedRect(0, 0, consoleW, consoleH)
+
+	-- Weapon name label
+	local activeWepName = weaponNames[currentWeapon] or "Unknown"
+	draw.SimpleText(activeWepName, "CombineHudText", scrW * 0.131, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+	-- Weapon icon
+	local iconTex = textures.weaponIcons[currentWeapon]
+	if iconTex then
+		surface.SetTexture(iconTex)
+		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+		surface.DrawTexturedRect(scrW * 0.06, scrH * 0.124, scrW * 0.077, scrH * 0.122)
+	end
+
+	-- Heat bar
+	local heatPercent 	   = ply:GetNWFloat("combineMechHeat", 0)
+	local cooldownFraction = math.Clamp(1 - heatPercent, 0, 1)
+
+	local heatBarX = scrW * 0.012
+	local heatBarY = consoleH + (scrH * 0.020)
+	local heatBarW = consoleW - (scrW * 0.024)
+	local heatBarH = scrH * 0.02
+
+	local currentHeatColour = colours.heatCool
+	if heatPercent > 0.8 then
+		currentHeatColour = colours.heatCritical
+	elseif heatPercent > 0.5 then
+		currentHeatColour = colours.heatWarning
+	end
+
+	draw.SimpleText("WEAPON COOLDOWN", "CombineHudSmall", heatBarX, heatBarY - (scrH * 0.006), colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+	drawOutlinedBar(heatBarX, heatBarY, heatBarW, heatBarH, cooldownFraction, currentHeatColour, colours.barBorder, colours.darkBg)
+
+	-- Broken texture
+	if controlState == 2 and healthPercent <= 0 then
+		surface.SetTexture(textures.hudBroken)
+		surface.SetDrawColor(255, 255, 255, 255)
+		surface.DrawTexturedRect(0, 0, scrW, scrH)
 	end
 end
 
-hook.Add("HUDPaint", "DrawCombineMechHud", DrawHud)
+hook.Add("HUDPaint", "DrawCombineMechHud", drawHud)
 
---Hide the default HUD if we are using the mech
-function Hide(Element)
+-- Only show some standard HUD stuff while inside the mech (add round timer/player health?)
+local hudElementWhitelist = {
+	["CHudGMod"] = true,
+	["CHudChat"] = true,
+	["NetGraph"] = true,
+	["CHudMenu"] = true,
+	["TTTTButton"] = true,
+}
 
+local function hideStandardHud(elementName)
 	local ply = LocalPlayer()
-
-	local useCam
-
-	if IsValid(ply) then
-		useCam = ply:GetNWInt("ControlsCombineMech", -1)
-	end
-
-	if useCam and useCam > 0 then
-		if ( Element == "CHudHealth" ) or ( Element == "CHudBattery" ) then
-			return false
-		end
-
-		if ( Element == "CHudAmmo" ) and ShowAmmo or ( Element == "CHudSecondaryAmmo" ) and ShowAmmo then
+	if IsValid(ply) and ply:Alive() and ply:InVehicle() then
+		local controlState = ply:GetNWInt("ControlsCombineMech", 0)
+		if controlState > 0 and not hudElementWhitelist[elementName] then
 			return false
 		end
 	end
 end
-hook.Add("HUDShouldDraw", "Hide", Hide)
+
+hook.Add("HUDShouldDraw", "CombineMechHideHud", hideStandardHud)
