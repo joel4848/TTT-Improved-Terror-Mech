@@ -1,29 +1,31 @@
 resource.AddFile("materials/VGUI/entities/sent_combinemech.vmt")
 
 if SERVER then
-   AddCSLuaFile( "shared.lua" )  
+   AddCSLuaFile( "shared.lua" )
 end
 
-SWEP.Base				= "weapon_tttbasegrenade"
+SWEP.Base = "weapon_tttbasegrenade"
 
 SWEP.Kind = WEAPON_EQUIP2
 SWEP.WeaponID = AMMO_MOLOTOV
 
-SWEP.HoldType			= "grenade"
+SWEP.HoldType = "grenade"
 
-SWEP.CanBuy = { ROLE_TRAITOR }
+SWEP.CanBuy       = { ROLE_TRAITOR }
 SWEP.InLoadoutFor = nil
 SWEP.LimitedStock = true
-SWEP.AllowDrop = true
-SWEP.IsSilent = false
-SWEP.NoSights = true
+SWEP.AllowDrop    = true
+SWEP.IsSilent     = false
+SWEP.NoSights     = true
 
-SWEP.ViewModel			= "models/weapons/v_eq_flashbang.mdl"
-SWEP.WorldModel			= "models/weapons/w_eq_flashbang.mdl"
-SWEP.Weight				= 5
-SWEP.AutoSpawnable      = false
+SWEP.ViewModel		= "models/weapons/v_eq_flashbang.mdl"
+SWEP.WorldModel	= "models/weapons/w_eq_flashbang.mdl"
+SWEP.Weight			= 5
+SWEP.AutoSpawnabl = false
 -- really the only difference between grenade weapons: the model and the thrown
 -- ent.
+
+SWEP.detonate_timer = 2
 
 if CLIENT then
    -- Path to the icon material
