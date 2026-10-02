@@ -1,7 +1,7 @@
 concommand.Add( "SetMechPlayerWepKey", function( ply, com, args )
 	local key = args[1]
 	local setKey = -1
-	ply.mechKey = args[1]
+	ply.MechKey = args[1]
 
 	--I just hate doing this but i haven't found any String to int func :[
 
@@ -29,5 +29,5 @@ concommand.Add( "SetMechPlayerWepKey", function( ply, com, args )
 		setKey = 10
 	end
 
-	ply.mechKey = setKey
+	ply.MechKey = setKey
 end)

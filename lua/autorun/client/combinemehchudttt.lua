@@ -8,7 +8,10 @@ local textures = {
 	weaponIcons = {
 		surface.GetTextureID("combinemechhud/turretIco"),
 		surface.GetTextureID("combinemechhud/screamerIco"),
-		surface.GetTextureID("combinemechhud/gravIco")
+		surface.GetTextureID("combinemechhud/gravIco"),
+		surface.GetTextureID("combinemechhud/grenadeIco"),
+		surface.GetTextureID("combinemechhud/missileIco"),
+		surface.GetTextureID("combinemechhud/missileStormIco")
 	}
 }
 
@@ -20,7 +23,7 @@ local colours = {
 	darkBg           = Color(10, 15, 20, 200),
 	barBorder        = Color(120, 200, 255, 220),
 
-	-- Heat bar fill colours
+	-- Heat/reload bar colours
 	heatCool 	 = Color(120, 200, 255, 220),
 	heatWarning  = Color(255, 160, 40, 220),
 	heatCritical = Color(255, 50, 50, 220),
@@ -46,7 +49,7 @@ surface.CreateFont("CombineHudSmall", {
 	antialias = true
 })
 
-local weaponNames       = {"Turret", "Screamer", "Grav Probe"}
+local weaponNames       = {"Turret", "Screamer", "Grav Probe", "Grenades", "Missile", "Missile Storm"}
 local crosshairRotation = 0
 local lastHealth        = 100
 local noiseEndTime      = 0
@@ -101,9 +104,9 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 
 		-- Only show boxes if player/NPC is visible
 		local tr = util.TraceLine({
-						start = eyePos,
-						endpos = centerPos,
-						filter = { ply, ply:GetVehicle(), targetEnt }
+			start  = eyePos,
+			endpos = centerPos,
+			filter = { ply, ply:GetVehicle(), targetEnt }
 		})
 
 		if tr.Hit then return end
@@ -137,14 +140,14 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 			-- Box is too wide using the smallest/largest x coordinates, so we want the 2nd smallest/largest instead
 			if screenPt.x < minX then
 				minX2nd = minX
-				minX = screenPt.x
+				minX 	= screenPt.x
 			elseif screenPt.x < minX2nd then
 				minX2nd = screenPt.x
 			end
 
 			if screenPt.x > maxX then
 				maxX2nd = maxX
-				maxX = screenPt.x
+				maxX 	= screenPt.x
 			elseif screenPt.x > maxX2nd then
 				maxX2nd = screenPt.x
 			end
@@ -217,7 +220,7 @@ local function drawHud()
 	local healthPercent = ply:GetNWFloat("combineMechHealth", 1)
 	local scrW, scrH 	= ScrW(), ScrH()
 
-	-- Distortion for impact/low health
+	-- Distortion for impacts/low health
 	local healthVal = healthPercent * 100
 
 	if healthVal < 49 then
@@ -254,12 +257,12 @@ local function drawHud()
 	----------------------------------------------------------------------------
 	-- Inside the mech
 	----------------------------------------------------------------------------
+
 	if controlState == 2 and IsValid(mechEnt) then
 		local shieldPercent = ply:GetNWFloat("combineMechShield", 0)
-		local heatPercent   = ply:GetNWFloat("combineMechHeat", 0)
 		local flyHeight     = ply:GetNWInt("combineMechFlyHeight", 0)
 
-		-- Altitude indicators
+		-- Altitude change indicators
 		local worldZ     = math.Round(mechEnt:GetPos().z)
 		local rowCount   = 10
 		local rowHeight  = scrH / rowCount
@@ -294,12 +297,7 @@ local function drawHud()
 
 		-- Horrible crosshair textures
 		local heightRatio = math.Clamp(1 - (flyHeight / 1000), 0, 1)
-		local crosshairColour = Color(
-			255 - (135 * heightRatio),
-			heightRatio * 200,
-			heightRatio * 250,
-			255
-		)
+		local crosshairColour = Color(255 - (135 * heightRatio), heightRatio * 200, heightRatio * 250, 255)
 
 		local crosshairW = scrW * 0.125
 		local crosshairH = scrH * 0.222
@@ -316,7 +314,26 @@ local function drawHud()
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
 		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 
-		-- Shield/health bars and labels
+		-- Ammo HUD
+		local clip        = ply:GetNWInt("combineMechClip", 0)
+		local reserve     = ply:GetNWInt("combineMechReserve", 0)
+		local isReloading = ply:GetNWBool("combineMechReloading", false)
+		local reloadFrac  = ply:GetNWFloat("combineMechReloadFraction", 0)
+
+		local ammoX       = scrW * 0.58
+		local ammoY       = scrH * 0.49
+		local reserveText = (reserve == 0) and "∞" or tostring(reserve)
+		local ammoText    = string.format("%d / %s", clip, reserveText)
+
+		draw.SimpleText(ammoText, "CombineHudText", ammoX, ammoY, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
+		if isReloading then
+			local rBarW = scrW * 0.08
+			local rBarH = scrH * 0.015
+			draw.SimpleText("RELOADING", "CombineHudSmall", ammoX, ammoY + (scrH * 0.02), colours.heatWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+			drawOutlinedBar(ammoX, ammoY + (scrH * 0.025), rBarW, rBarH, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg)
+		end
+
 		local barW         = scrW * 0.28
 		local barH         = scrH * 0.022
 		local shieldX      = scrW * 0.018
@@ -337,7 +354,7 @@ local function drawHud()
 
 	drawTargetingBoxes2D(ply, EyePos(), 3000)
 
-	-- Weapon box/heat bar
+	-- Weapon box
 	if currentWeapon ~= previousWeapon then
 		previousWeapon = currentWeapon
 		ply:EmitSound("common/wpn_moveselect.wav")
@@ -362,25 +379,6 @@ local function drawHud()
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
 		surface.DrawTexturedRect(scrW * 0.06, scrH * 0.124, scrW * 0.077, scrH * 0.122)
 	end
-
-	-- Heat bar
-	local heatPercent 	   = ply:GetNWFloat("combineMechHeat", 0)
-	local cooldownFraction = math.Clamp(1 - heatPercent, 0, 1)
-
-	local heatBarX = scrW * 0.012
-	local heatBarY = consoleH + (scrH * 0.020)
-	local heatBarW = consoleW - (scrW * 0.024)
-	local heatBarH = scrH * 0.02
-
-	local currentHeatColour = colours.heatCool
-	if heatPercent > 0.8 then
-		currentHeatColour = colours.heatCritical
-	elseif heatPercent > 0.5 then
-		currentHeatColour = colours.heatWarning
-	end
-
-	draw.SimpleText("WEAPON COOLDOWN", "CombineHudSmall", heatBarX, heatBarY - (scrH * 0.006), colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
-	drawOutlinedBar(heatBarX, heatBarY, heatBarW, heatBarH, cooldownFraction, currentHeatColour, colours.barBorder, colours.darkBg)
 
 	-- Broken texture
 	if controlState == 2 and healthPercent <= 0 then
