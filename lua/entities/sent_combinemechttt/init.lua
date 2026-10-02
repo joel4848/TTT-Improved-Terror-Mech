@@ -84,7 +84,6 @@ ENT.NPCTarget             = nil
 ENT.NPCTarget2            = nil
 ENT.UpdateMechAsTargetDel = CurTime()
 ENT.Spawner               = nil
-ENT.IsUsingJet            = false
 ENT.UserSeat              = nil
 
 -- Health
@@ -288,6 +287,8 @@ function ENT:Initialize()
 			reloadDuration = 0
 		}
 	end
+
+	self:SyncNetVars()
 end
 
 -------------------------------------------
@@ -330,6 +331,92 @@ function ENT:FinishReload(wepType)
 		local taken      = MathMin(needed, wepState.reserve)
 		wepState.reserve = wepState.reserve - taken
 		wepState.clip    = wepState.clip + taken
+	end
+end
+
+-------------------------------------------
+-- Networking bits
+-------------------------------------------
+
+function ENT:SyncNetVars()
+	self:SetMechHealthPct(MathClamp(math.ceil((self.MechHealth / self.MechMaxHealth) * 100), 0, 100))
+	self:SetShieldPercentage(MathClamp(math.floor((self.Energy / self.MaxEnergy) * 100), 0, 100))
+	self:SetWeaponType(self.WepType)
+	self:SetFlyHeight(math.floor(self.FlyHeight))
+
+	-- Only send info for current weapon
+	local wepState = self.WeaponStates[self.WepType]
+	if wepState then
+		self:SetAmmoClip(wepState.clip)
+		self:SetAmmoReserve(wepState.reserve)
+		self:SetIsReloading(wepState.isReloading)
+		self:SetReloadEndTime(wepState.reloadEndTime)
+		self:SetReloadDuration(wepState.reloadDuration)
+	end
+end
+
+-- Weapon selection
+function ENT:SelectWeapon(wepID)
+	if wepID < 1 or wepID > self.MaxWeps or wepID == self.WepType then return end
+
+	self.WepType = wepID
+	self:SyncNetVars()
+end
+
+-- Flashlight
+function ENT:ToggleFlashlight()
+	local curTime = CurTime()
+	if self.FlashLightDel >= curTime then return end
+	if not IsValid(self.KeepUpRightProp) then return end
+
+	self.FlashLightDel = curTime + 0.25
+
+	if not IsValid(self.FlashLightEnt) then
+		self:EmitSound("buttons/button1.wav")
+		local flashPos = Vector(50, 0, -20)
+
+		self.FlashLightEnt = ents.Create("env_projectedtexture")
+		self.FlashLightEnt:SetParent(self.KeepUpRightProp)
+		self.FlashLightEnt:SetLocalPos(flashPos)
+		self.FlashLightEnt:SetLocalAngles(Angle(10, 0, 0))
+		self.FlashLightEnt:SetKeyValue("enableshadows", 1)
+		self.FlashLightEnt:SetKeyValue("LightWorld", 1)
+		self.FlashLightEnt:SetKeyValue("farz", 2048)
+		self.FlashLightEnt:SetKeyValue("nearz", 65)
+		self.FlashLightEnt:SetKeyValue("lightfov", 75)
+		self.FlashLightEnt:SetKeyValue("lightcolor", "255 255 255")
+		self.FlashLightEnt:Spawn()
+		self.FlashLightEnt:Input("SpotlightTexture", nil, nil, "effects/flashlight001")
+
+		self.LeftFlashSprite = ents.Create("env_sprite")
+		self.LeftFlashSprite:SetPos(self.KeepUpRightProp:GetPos() + (self.KeepUpRightProp:GetForward() * 20) + (self.KeepUpRightProp:GetRight() * -25) + (self.KeepUpRightProp:GetUp() * -5))
+		self.LeftFlashSprite:SetKeyValue("renderfx", "14")
+		self.LeftFlashSprite:SetKeyValue("model", "sprites/glow1.vmt")
+		self.LeftFlashSprite:SetKeyValue("scale", "1.0")
+		self.LeftFlashSprite:SetKeyValue("spawnflags", "1")
+		self.LeftFlashSprite:SetKeyValue("rendermode", "9")
+		self.LeftFlashSprite:SetKeyValue("renderamt", "255")
+		self.LeftFlashSprite:SetKeyValue("rendercolor", "240 240 170")
+		self.LeftFlashSprite:Spawn()
+		self.LeftFlashSprite:SetParent(self.KeepUpRightProp)
+
+		self.RightFlashSprite = ents.Create("env_sprite")
+		self.RightFlashSprite:SetPos(self.KeepUpRightProp:GetPos() + (self.KeepUpRightProp:GetForward() * 20) + (self.KeepUpRightProp:GetRight() * 25) + (self.KeepUpRightProp:GetUp() * -5))
+		self.RightFlashSprite:SetKeyValue("renderfx", "14")
+		self.RightFlashSprite:SetKeyValue("model", "sprites/glow1.vmt")
+		self.RightFlashSprite:SetKeyValue("scale", "1.0")
+		self.RightFlashSprite:SetKeyValue("spawnflags", "1")
+		self.RightFlashSprite:SetKeyValue("rendermode", "9")
+		self.RightFlashSprite:SetKeyValue("renderamt", "255")
+		self.RightFlashSprite:SetKeyValue("rendercolor", "240 240 170")
+		self.RightFlashSprite:Spawn()
+		self.RightFlashSprite:SetParent(self.KeepUpRightProp)
+	else
+		self:EmitSound("buttons/button4.wav")
+		self.FlashLightEnt:Remove()
+		self.FlashLightEnt = nil
+		if IsValid(self.LeftFlashSprite) then self.LeftFlashSprite:Remove() end
+		if IsValid(self.RightFlashSprite) then self.RightFlashSprite:Remove() end
 	end
 end
 
@@ -469,74 +556,7 @@ function ENT:PhysicsUpdate(physics)
 			-- Weapon selection
 			if self.User:KeyDown(IN_SPEED) and self.ChangeWepDel < curTime then
 				self.ChangeWepDel = curTime + 0.5
-				self.WepType 	  = self.WepType + 1
-
-				if self.WepType > self.MaxWeps then
-					self.WepType = 1
-				end
-
-				self.User.MechKey = self.WepType
-			end
-
-			if self.User.MechKey ~= nil and self.User.MechKey ~= self.WepType and self.User.MechKey <= self.MaxWeps and self.User.MechKey > 0 then
-				self.WepType = self.User.MechKey
-			end
-
-			-- Flashlight toggling
-			if self.User.MechKey ~= nil and self.User.MechKey == 10 and self.FlashLightDel < curTime then
-				self.FlashLightDel = curTime + 0.25
-				self.User.MechKey  = self.WepType
-
-				if not IsValid(self.FlashLightEnt) then
-					-- Turn it on
-					self:EmitSound("buttons/button1.wav")
-					local flashPos = Vector(50, 0, -20)
-
-					self.FlashLightEnt = ents.Create("env_projectedtexture")
-					self.FlashLightEnt:SetParent(self.KeepUpRightProp)
-					self.FlashLightEnt:SetLocalPos(flashPos)
-					self.FlashLightEnt:SetLocalAngles(Angle(10, 0, 0))
-					self.FlashLightEnt:SetKeyValue("enableshadows", 1)
-					self.FlashLightEnt:SetKeyValue("LightWorld", 1)
-					self.FlashLightEnt:SetKeyValue("farz", 2048)
-					self.FlashLightEnt:SetKeyValue("nearz", 65)
-					self.FlashLightEnt:SetKeyValue("lightfov", 75)
-					self.FlashLightEnt:SetKeyValue("lightcolor", "255 255 255")
-					self.FlashLightEnt:Spawn()
-					self.FlashLightEnt:Input("SpotlightTexture", nil, nil, "effects/flashlight001")
-
-					self.LeftFlashSprite = ents.Create("env_sprite")
-					self.LeftFlashSprite:SetPos(self.KeepUpRightProp:GetPos() + (self.KeepUpRightProp:GetForward() * 20) + (self.KeepUpRightProp:GetRight() * -25) + (self.KeepUpRightProp:GetUp() * -5))
-					self.LeftFlashSprite:SetKeyValue("renderfx", "14")
-					self.LeftFlashSprite:SetKeyValue("model", "sprites/glow1.vmt")
-					self.LeftFlashSprite:SetKeyValue("scale", "1.0")
-					self.LeftFlashSprite:SetKeyValue("spawnflags", "1")
-					self.LeftFlashSprite:SetKeyValue("rendermode", "9")
-					self.LeftFlashSprite:SetKeyValue("renderamt", "255")
-					self.LeftFlashSprite:SetKeyValue("rendercolor", "240 240 170")
-					self.LeftFlashSprite:Spawn()
-					self.LeftFlashSprite:SetParent(self.KeepUpRightProp)
-
-					self.RightFlashSprite = ents.Create("env_sprite")
-					self.RightFlashSprite:SetPos(self.KeepUpRightProp:GetPos() + (self.KeepUpRightProp:GetForward() * 20) + (self.KeepUpRightProp:GetRight() * 25) + (self.KeepUpRightProp:GetUp() * -5))
-					self.RightFlashSprite:SetKeyValue("renderfx", "14")
-					self.RightFlashSprite:SetKeyValue("model", "sprites/glow1.vmt")
-					self.RightFlashSprite:SetKeyValue("scale", "1.0")
-					self.RightFlashSprite:SetKeyValue("spawnflags", "1")
-					self.RightFlashSprite:SetKeyValue("rendermode", "9")
-					self.RightFlashSprite:SetKeyValue("renderamt", "255")
-					self.RightFlashSprite:SetKeyValue("rendercolor", "240 240 170")
-					self.RightFlashSprite:Spawn()
-					self.RightFlashSprite:SetParent(self.KeepUpRightProp)
-				else
-					-- Turn it off
-					self:EmitSound("buttons/button4.wav")
-					self.FlashLightEnt:Remove()
-					self.FlashLightEnt = nil
-
-					if IsValid(self.LeftFlashSprite) then self.LeftFlashSprite:Remove() end
-					if IsValid(self.RightFlashSprite) then self.RightFlashSprite:Remove() end
-				end
+				self:SelectWeapon(self.WepType % self.MaxWeps + 1)
 			end
 
 			local wepState = self.WeaponStates[self.WepType]
@@ -682,6 +702,9 @@ function ENT:PhysicsUpdate(physics)
 			end
 		end
 
+		-- Send up to date mech stuff to client
+		self:SyncNetVars()
+
 		-- Jet effect stuff
 		if self.FlyHeight > 0 then
 			self.JetTimer = curTime + 1
@@ -746,34 +769,10 @@ function ENT:Think()
 	if self.MechHealth > 0 then
 		self:GetPhysicsObject():Wake()
 
-		-- Jet smoke?
-		if not self.IsUsingJet and self.FlyHeight > 0 then
-			self.IsUsingJet = true
-			self:SetNWBool("IsFlying", true)
-		elseif self.IsUsingJet and self.FlyHeight == 0 then
-			self.IsUsingJet = false
-			self:SetNWBool("IsFlying", false)
-		end
+		-- Jet smoke
+		self:SetIsFlying(self.FlyHeight > 0)
 
-		-- Updating networked bits for the hud
-		if IsValid(self.User) then
-			self.User:SetNWFloat("combineMechHealth", MathClamp(self.MechHealth / self.MechMaxHealth, 0, 1))
-			self.User:SetNWFloat("combineMechShield", MathClamp(self.Energy / self.MaxEnergy, 0, 1))
-			self.User:SetNWInt("combineMechWeapon", self.WepType)
-			self.User:SetNWInt("combineMechFlyHeight", self.FlyHeight)
-
-			local wepState = self.WeaponStates[self.WepType]
-			if wepState then
-				self.User:SetNWInt("combineMechClip", wepState.clip)
-				self.User:SetNWInt("combineMechReserve", wepState.reserve)
-				self.User:SetNWBool("combineMechReloading", wepState.isReloading)
-
-				if wepState.isReloading then
-					local fraction = 1 - ((wepState.reloadEndTime - curTime) / wepState.reloadDuration)
-					self.User:SetNWFloat("combineMechReloadFraction", MathClamp(fraction, 0, 1))
-				end
-			end
-		else
+		if not IsValid(self.User) then
 			self.ScreamerCharging = false
 
 			if IsValid(self.FlashLightEnt) then
@@ -850,10 +849,7 @@ function ENT:Think()
 		self.Energy = 0
 		self.JetSound:Stop()
 
-		if self.IsUsingJet then
-			self.IsUsingJet = false
-			self:SetNWBool("IsFlying", false)
-		end
+		self:SetIsFlying(false)
 
 		if IsValid(self.KeepUpRightCon) then
 			self.KeepUpRightCon:Remove()
@@ -867,11 +863,8 @@ function ENT:Think()
 		-- Remove the shield sprite
 		if IsValid(self.ShieldSprite) then self.ShieldSprite:Remove() self.ShieldSprite = nil end
 
-
-		-- Set HUD health to 0
-		if IsValid(self.User) then
-			self.User:SetNWFloat("combineMechHealth", 0)
-		end
+		-- Send health/shield 0 to client
+		self:SyncNetVars()
 	end
 
 	-- Health visual effects
@@ -967,14 +960,11 @@ function ENT:SetUser(ply)
 	self.User:EnterVehicle(self.UserSeat)
 	self.User:SetColor(Color(255, 255, 255, 0))
 
-	self.User:SetNWFloat("combineMechHealth", self.MechHealth / self.MechMaxHealth)
-	self.User:SetNWFloat("combineMechShield", self.Energy / self.MaxEnergy)
-	self.User:SetNWInt("combineMechWeapon", self.WepType)
-	self.User:SetNWInt("combineMechFlyHeight", self.FlyHeight)
+	self.ChangeView = true
 	self.User:SetNWInt("ControlsCombineMech", 1)
 	self.User:SetNWEntity("CombineMechEnt", self)
 	self.User:SetNWEntity("CombineMechSawEnt", self.KeepUpRightProp)
-	self.User.MechKey = self.WepType
+	self:SyncNetVars()
 
 	if not IsValid(self.NPCTarget) then
 		self.NPCTarget = ents.Create("npc_bullseye")

@@ -1,3 +1,9 @@
+local MathAbs   = math.abs
+local MathClamp = math.Clamp
+local MathMax   = math.max
+local MathRand  = math.Rand
+local MathRound = math.Round
+
 local textures = {
 	hudBg 		= surface.GetTextureID("combinemechhud/hud"),
 	hudBroken 	= surface.GetTextureID("combinemechhud/broken"),
@@ -33,7 +39,7 @@ local colours = {
 	targetNpc 	 = Color(255, 60, 60, 220)
 }
 
-local fontSize = math.Round(ScrH() * 0.033)
+local fontSize = MathRound(ScrH() * 0.033)
 
 surface.CreateFont("CombineHudText", {
 	font      = "Agency FB",
@@ -44,7 +50,7 @@ surface.CreateFont("CombineHudText", {
 
 surface.CreateFont("CombineHudSmall", {
 	font      = "Agency FB",
-	size      = math.Round(fontSize * 0.65),
+	size      = MathRound(fontSize * 0.65),
 	weight    = 600,
 	antialias = true
 })
@@ -58,22 +64,22 @@ local previousWeapon    = 1
 
 local function drawNoiseBoxes(count, scrW, scrH)
 	for i = 1, count do
-		local xPos    	 = math.Rand(1, scrW)
-		local yPos    	 = math.Rand(1, scrH)
-		local xSize   	 = math.Rand(1, scrW * 0.05)
-		local ySize   	 = math.Rand(1, scrH * 0.05)
-		local randomGrey = math.Rand(1, 255)
+		local xPos    	 = MathRand(1, scrW)
+		local yPos    	 = MathRand(1, scrH)
+		local xSize   	 = MathRand(1, scrW * 0.05)
+		local ySize   	 = MathRand(1, scrH * 0.05)
+		local randomGrey = MathRand(1, 255)
 
-		draw.RoundedBox(0, xPos, yPos, xSize, ySize, Color(randomGrey, randomGrey, randomGrey, math.Rand(1, 255)))
+		draw.RoundedBox(0, xPos, yPos, xSize, ySize, Color(randomGrey, randomGrey, randomGrey, MathRand(1, 255)))
 	end
 end
 
 local function drawNoiseLines(count, scrW, scrH)
 	for i = 1, count do
-		local yPos = math.Rand(1, scrH)
-		local randomGrey = math.Rand(1, 255)
+		local yPos       = MathRand(1, scrH)
+		local randomGrey = MathRand(1, 255)
 
-		surface.SetDrawColor(randomGrey, randomGrey, randomGrey, math.Rand(1, 255))
+		surface.SetDrawColor(randomGrey, randomGrey, randomGrey, MathRand(1, 255))
 		surface.DrawLine(0, yPos, scrW, yPos)
 	end
 end
@@ -83,7 +89,7 @@ local function drawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, b
 	draw.RoundedBox(0, x, y, w, h, bgColour or colours.darkBg)
 
 	-- Fill
-	local fillW = math.Clamp(w * fraction, 0, w)
+	local fillW = MathClamp(w * fraction, 0, w)
 	if fillW > 0 then
 		draw.RoundedBox(0, x, y, fillW, h, fillColour)
 	end
@@ -169,25 +175,25 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 		surface.DrawOutlinedRect(x, y, w, h)
 
 		-- Outer black border (+1px)
-		surface.SetDrawColor(0, 0, 0, 220)
+		surface.SetDrawColor(0, 0, 0, 255)
 		surface.DrawOutlinedRect(x - 1, y - 1, w + 2, h + 2)
 
 		-- Inner black border (-1px)
-		surface.SetDrawColor(0, 0, 0, 220)
+		surface.SetDrawColor(0, 0, 0, 255)
 		surface.DrawOutlinedRect(x + 1, y + 1, w - 2, h - 2)
 
 		-- Text labels
-		local shadowCol = Color(0, 0, 0, 240)
+		local shadowColour = Color(0, 0, 0, 255)
 		local centerX 	= x + (w / 2)
 
 		-- Name
-		draw.SimpleText(titleText, "CombineHudSmall", centerX + 1, y - 13, shadowCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+		draw.SimpleText(titleText, "CombineHudSmall", centerX + 1, y - 13, shadowColour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
 		draw.SimpleText(titleText, "CombineHudSmall", centerX, 	   y - 14, colour, 	  TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
 
 		-- Distance
-		local distText = math.Round(distance * 0.0254) .. "m"
-		draw.SimpleText(distText, "CombineHudSmall", centerX + 1, y + h + 5, shadowCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
-		draw.SimpleText(distText, "CombineHudSmall", centerX, 	  y + h + 4, colour, 	TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+		local distanceText = MathRound(distance * 0.0254) .. "m"
+		draw.SimpleText(distanceText, "CombineHudSmall", centerX + 1, y + h + 5, shadowColour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+		draw.SimpleText(distanceText, "CombineHudSmall", centerX, 	  y + h + 4, colour, 	TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 	end
 
 	-- Target Players
@@ -215,39 +221,42 @@ local function drawHud()
 	local controlState = ply:GetNWInt("ControlsCombineMech", 0)
 	if controlState <= 0 then return end
 
-	local mechEnt 		= ply:GetNWEntity("CombineMechEnt")
-	local currentWeapon = ply:GetNWInt("combineMechWeapon", 1)
-	local healthPercent = ply:GetNWFloat("combineMechHealth", 1)
+	local mechEnt = ply:GetNWEntity("CombineMechEnt")
+	if not IsValid(mechEnt) then return end
+
+	local currentWeapon = mechEnt:GetWeaponType()
+	local healthPercent = mechEnt:GetMechHealthPct() / 100
+
 	local scrW, scrH 	= ScrW(), ScrH()
 
 	-- Distortion for impacts/low health
 	local healthVal = healthPercent * 100
 
 	if healthVal < 49 then
-		local lineCount = math.Round(math.Rand(1, 50 - healthVal))
+		local lineCount = MathRound(MathRand(1, 50 - healthVal))
 		drawNoiseLines(lineCount, scrW, scrH)
 
 		if healthVal < 24 then
-			local boxCount = math.Round(math.Rand(1, 25 - healthVal))
+			local boxCount = MathRound(MathRand(1, 25 - healthVal))
 			drawNoiseBoxes(boxCount, scrW, scrH)
 		end
 	end
 
 	local currentTime = CurTime()
 	if lastHealth ~= healthVal then
-		noiseStartTime = math.abs(lastHealth - healthVal) / 10
+		noiseStartTime = MathAbs(lastHealth - healthVal) / 10
 		noiseEndTime   = currentTime + noiseStartTime
 		lastHealth 	   = healthVal
 	end
 
 	if noiseEndTime > currentTime then
 		local noisePerc = 1 - ((noiseEndTime - currentTime) / noiseStartTime)
-		drawNoiseBoxes(math.Round(noisePerc * 50), scrW, scrH)
-		drawNoiseLines(math.Round(noisePerc * 50), scrW, scrH)
+		drawNoiseBoxes(MathRound(noisePerc * 50), scrW, scrH)
+		drawNoiseLines(MathRound(noisePerc * 50), scrW, scrH)
 
-		local staticAlpha = (noisePerc * 100) + math.Rand(1, 50)
-		local offsetX 	  = math.Rand(1, scrW * 0.2)
-		local offsetY 	  = math.Rand(1, scrH * 0.2)
+		local staticAlpha = (noisePerc * 100) + MathRand(1, 50)
+		local offsetX 	  = MathRand(1, scrW * 0.2)
+		local offsetY 	  = MathRand(1, scrH * 0.2)
 
 		surface.SetTexture(textures.hudStatic)
 		surface.SetDrawColor(255, 255, 255, staticAlpha)
@@ -259,11 +268,11 @@ local function drawHud()
 	----------------------------------------------------------------------------
 
 	if controlState == 2 and IsValid(mechEnt) then
-		local shieldPercent = ply:GetNWFloat("combineMechShield", 0)
-		local flyHeight     = ply:GetNWInt("combineMechFlyHeight", 0)
+		local shieldPercent = mechEnt:GetShieldPercentage() / 100
+		local flyHeight     = mechEnt:GetFlyHeight()
 
 		-- Altitude change indicators
-		local worldZ     = math.Round(mechEnt:GetPos().z)
+		local worldZ     = MathRound(mechEnt:GetPos().z)
 		local rowCount   = 10
 		local rowHeight  = scrH / rowCount
 		local boxW       = scrW * 0.02
@@ -296,7 +305,7 @@ local function drawHud()
 		surface.DrawTexturedRect(0, 0, scrW, scrH)
 
 		-- Horrible crosshair textures
-		local heightRatio = math.Clamp(1 - (flyHeight / 1000), 0, 1)
+		local heightRatio = MathClamp(1 - (flyHeight / 1000), 0, 1)
 		local crosshairColour = Color(255 - (135 * heightRatio), heightRatio * 200, heightRatio * 250, 255)
 
 		local crosshairW = scrW * 0.125
@@ -315,10 +324,15 @@ local function drawHud()
 		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 
 		-- Ammo HUD
-		local clip        = ply:GetNWInt("combineMechClip", 0)
-		local reserve     = ply:GetNWInt("combineMechReserve", 0)
-		local isReloading = ply:GetNWBool("combineMechReloading", false)
-		local reloadFrac  = ply:GetNWFloat("combineMechReloadFraction", 0)
+		local clip        = mechEnt:GetAmmoClip()
+		local reserve     = mechEnt:GetAmmoReserve()
+		local isReloading = mechEnt:GetIsReloading()
+		local reloadFrac  = 0
+
+		if isReloading then
+			local duration = MathMax(mechEnt:GetReloadDuration(), 0.01)
+			reloadFrac = MathClamp(1 - ((mechEnt:GetReloadEndTime() - CurTime()) / duration), 0, 1)
+		end
 
 		local ammoX       = scrW * 0.58
 		local ammoY       = scrH * 0.49
@@ -343,12 +357,12 @@ local function drawHud()
 		local barY         = scrH * 0.9415
 
 		-- Shield bar & label
-		draw.SimpleText("SHIELD  [" .. math.Round(shieldPercent * 100) .. "%]", "CombineHudText", shieldLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		draw.SimpleText("SHIELD  [" .. MathRound(shieldPercent * 100) .. "%]", "CombineHudText", shieldLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 		drawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, colours.combineBlue, colours.barBorder, colours.darkBg)
 
 		-- Health bar & label
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
-		draw.SimpleText("HEALTH  [" .. math.Round(healthPercent * 100) .. "%]", "CombineHudText", healthLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		draw.SimpleText("HEALTH  [" .. MathRound(healthPercent * 100) .. "%]", "CombineHudText", healthLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 		drawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
 	end
 

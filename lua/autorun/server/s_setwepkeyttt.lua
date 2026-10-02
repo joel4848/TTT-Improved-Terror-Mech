@@ -1,33 +1,24 @@
-concommand.Add( "SetMechPlayerWepKey", function( ply, com, args )
-	local key = args[1]
-	local setKey = -1
-	ply.MechKey = args[1]
+local WEAPON_KEYS = {
+	[KEY_1] = 1,
+	[KEY_2] = 2,
+	[KEY_3] = 3,
+	[KEY_4] = 4,
+	[KEY_5] = 5,
+	[KEY_6] = 6
+}
 
-	--I just hate doing this but i haven't found any String to int func :[
+hook.Add("PlayerButtonDown", "CombineMech_Keys", function(ply, button)
+	-- Ignore players that aren't piloting a mech
+	if ply:GetNWInt("ControlsCombineMech", 0) <= 0 then return end
 
-	if key == "0.00" then
-		setKey = 0
-	elseif key == "1.00" then
-		setKey = 1
-	elseif key == "2.00" then
-		setKey = 2
-	elseif key == "3.00" then
-		setKey = 3
-	elseif key == "4.00" then
-		setKey = 4
-	elseif key == "5.00" then
-		setKey = 5
-	elseif key == "6.00" then
-		setKey = 6
-	elseif key == "7.00" then
-		setKey = 7
-	elseif key == "8.00" then
-		setKey = 8
-	elseif key == "9.00" then
-		setKey = 9
-	elseif key == "10.00" then
-		setKey = 10
+	local mech = ply:GetNWEntity("CombineMechEnt")
+	if not IsValid(mech) or mech.User ~= ply then return end
+
+	local wepID = WEAPON_KEYS[button]
+
+	if wepID then
+		mech:SelectWeapon(wepID)
+	elseif button == KEY_F then
+		mech:ToggleFlashlight()
 	end
-
-	ply.MechKey = setKey
 end)
