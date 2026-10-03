@@ -3,7 +3,7 @@ ENT.Base = "base_anim"
 ENT.Type = "anim"
 
 ENT.PrintName	 = "Combine Mech"
-ENT.Author		 = "Fixed by Joel484848 - originally Sakarias88 ported By Jenssons"
+ENT.Author		 = "Fixed by Joel4848 - originally Sakarias88 ported By Jenssons"
 ENT.Contact    	 = ""
 ENT.Purpose 	 = ""
 ENT.Instructions = ""
