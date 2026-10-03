@@ -219,9 +219,15 @@ local function drawHud()
 	if GetViewEntity() ~= ply then return end
 
 	local controlState = ply:GetNWInt("ControlsCombineMech", 0)
+	if controlState <= 0 and ply.MechViewMode then
+		controlState = ply.MechViewMode
+	end
 	if controlState <= 0 then return end
 
 	local mechEnt = ply:GetNWEntity("CombineMechEnt")
+	if not IsValid(mechEnt) and IsValid(ply.MechEntity) then
+		mechEnt = ply.MechEntity
+	end
 	if not IsValid(mechEnt) then return end
 
 	local currentWeapon = mechEnt:GetWeaponType()
@@ -418,10 +424,16 @@ local function hideStandardHud(elementName)
 	local ply = LocalPlayer()
 	if IsValid(ply) and ply:Alive() and ply:InVehicle() then
 		local controlState = ply:GetNWInt("ControlsCombineMech", 0)
+		if controlState <= 0 and ply.MechViewMode then
+			controlState = ply.MechViewMode
+		end
+
 		if controlState > 0 and not hudElementWhitelist[elementName] then
 			return false
 		end
 	end
 end
+
+hook.Add("HUDShouldDraw", "CombineMechHideHud", hideStandardHud)
 
 hook.Add("HUDShouldDraw", "CombineMechHideHud", hideStandardHud)

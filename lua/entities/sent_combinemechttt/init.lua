@@ -2,6 +2,8 @@ AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
+util.AddNetworkString("TTT_ImprovedMech_ForceView")
+
 local MathAbs    = math.abs
 local MathCeil	 = math.ceil
 local MathClamp  = math.Clamp
@@ -1076,21 +1078,28 @@ function ENT:SetHoverMultiplier(newMP)
 end
 
 function ENT:SetUser(ply)
+	if IsValid(self.User) then return end
+	if CurTime() < (self.EnterDel or 0) then return end
 	self.EnterDel = CurTime() + 1
-
-	if IsValid(self.User) then
-		self:RemoveUser()
-	end
 
 	self.User = ply
 	self.User:EnterVehicle(self.UserSeat)
 	self.User:SetColor(Color(255, 255, 255, 0))
 
-	self.ChangeView = true
-	self.User:SetNWInt("ControlsCombineMech", 1)
+	local mechAngles = self:GetAngles()
+	self.User:SetEyeAngles(Angle(0, mechAngles.yaw, 0))
+
+	self.ChangeView = false
+	self.User:SetNWInt("ControlsCombineMech", 2)
 	self.User:SetNWEntity("CombineMechEnt", self)
 	self.User:SetNWEntity("CombineMechSawEnt", self.KeepUpRightProp)
 	self:SyncNetVars()
+
+	net.Start("TTT_ImprovedMech_ForceView")
+		net.WriteEntity(self)
+		net.WriteInt(2, 8)
+		net.WriteEntity(self.KeepUpRightProp)
+	net.Send(ply)
 
 	if not IsValid(self.NPCTarget) then
 		self.NPCTarget = ents.Create("npc_bullseye")
