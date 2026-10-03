@@ -55,7 +55,6 @@ local convarPrefix = "ttt_improvedmech_"
 
 for _, wepName in ipairs(WEP_NAMES) do
 	for _, statName in ipairs(WEP_STAT_NAMES) do
-		print("STAT_DESCRIPTIONS[statName] = " .. STAT_DESCRIPTIONS[statName])
 		CreateConVar(convarPrefix .. wepName .. "_" .. statName, WEP_DEFAULTS[wepName][statName], FCVAR_NONE, STAT_DESCRIPTIONS[statName], WEP_MINS[wepName][statName], WEP_MAXS[wepName][statName])
 	end
 end
@@ -255,19 +254,21 @@ function ENT:Initialize()
 	self.MechUserEnt:SetNWEntity("CombineMechEnt", self)
 	constraint.Weld(self.Mech, self.MechUserEnt, 0, 0, 0, true)
 
-	-- Shield sprite
-	self.ShieldSprite = ents.Create("env_sprite")
-	self.ShieldSprite:SetPos(self:GetPos() + Vector(-64, 0, 50))
-	self.ShieldSprite:SetKeyValue("renderfx", "14")
-	self.ShieldSprite:SetKeyValue("model", "sprites/glow1.vmt")
-	self.ShieldSprite:SetKeyValue("scale", "0.5")
-	self.ShieldSprite:SetKeyValue("spawnflags", "1")
-	self.ShieldSprite:SetKeyValue("angles", "0 0 0")
-	self.ShieldSprite:SetKeyValue("rendermode", "9")
-	self.ShieldSprite:SetKeyValue("renderamt", "255")
-	self.ShieldSprite:SetKeyValue("rendercolor", "0 255 0")
-	self.ShieldSprite:Spawn()
-	self.ShieldSprite:SetParent(self.KeepUpRightProp)
+	-- Shield Sphere
+	self.ShieldSphere = ents.Create("prop_dynamic")
+	self.ShieldSphere:SetModel("models/hunter/misc/sphere2x2.mdl")
+	self.ShieldSphere:SetPos(self:GetPos() + Vector(0, 0, -40))
+	self.ShieldSphere:SetAngles(Angle(0, 0, 0))
+	self.ShieldSphere:Spawn()
+	self.ShieldSphere:SetParent(self.KeepUpRightProp)
+
+	self.ShieldSphere:SetMaterial("models/debug/debugwhite")
+	self.ShieldSphere:SetRenderMode(RENDERMODE_TRANSCOLOR)
+	self.ShieldSphere:SetColor(Color(120, 200, 255, 60))
+
+	self.ShieldSphere:SetModelScale(2.7, 0)
+	self.ShieldSphere:SetNotSolid(true)
+	self.ShieldSphere:DrawShadow(false)
 
 	self.JetSound = CreateSound(self, "weapons/rpg/rocket1.wav")
 	self.ChargeVortSound = CreateSound(self, "npc/vort/attack_charge.wav")
@@ -529,8 +530,6 @@ hook.Add("EntityTakeDamage", "TTT_ImprovedMech_DamageHandler", function(target, 
 	if target:IsPlayer() and target:InVehicle() then
 		-- Allow over-damage to the pilot if the flag is set
 		if target.AllowMechOverdamage then
-			PrintMessage(HUD_PRINTTALK, "target = " .. tostring(target))
-			PrintMessage(HUD_PRINTTALK, "damage = " .. tostring(dmginfo:GetDamage()))
 			return
 		end
 
@@ -944,19 +943,20 @@ function ENT:Think()
 			end
 		end
 
-		-- Set shield sprite colour
-		if IsValid(self.ShieldSprite) then
-			local rCol = 2.5 * (self.MaxEnergy - self.Energy)
-			local gCol = 2.5 * self.Energy
-			local bCol = 0
+		-- Set shield sphere color/transparency
+		if IsValid(self.ShieldSphere) then
+			if self.Energy > 0 then
+				self.ShieldSphere:SetNoDraw(false)
 
-			if self.Energy < 0 then
-				rCol = MathRandom(0, 50)
-				gCol = MathRandom(0, 50)
-				bCol = MathRandom(0, 255)
+				local energyPercentage = math.Clamp(self.Energy / self.MaxEnergy, 0, 1)
+				local rCol = 120 + 135 * (1 - energyPercentage)
+				local gCol = 200 * energyPercentage
+				local bCol = 255 * energyPercentage
+
+				self.ShieldSphere:SetColor(Color(rCol, gCol, bCol, 60))
+			else
+				self.ShieldSphere:SetNoDraw(true)
 			end
-
-			self.ShieldSprite:SetKeyValue("rendercolor", rCol .. " " .. gCol .. " " .. bCol)
 		end
 
 		self.DotProd = self:GetUp():Dot(Vector(0, 0, 1))
@@ -988,8 +988,8 @@ function ENT:Think()
 		if IsValid(self.NPCTarget) then self.NPCTarget:Remove() self.NPCTarget = nil end
 		if IsValid(self.NPCTarget2) then self.NPCTarget2:Remove() self.NPCTarget2 = nil end
 
-		-- Remove the shield sprite
-		if IsValid(self.ShieldSprite) then self.ShieldSprite:Remove() self.ShieldSprite = nil end
+		-- Remove the shield sphere
+		if IsValid(self.ShieldSphere) then self.ShieldSphere:Remove() self.ShieldSphere = nil end
 
 		-- Send health/shield 0 to client
 		self:SyncNetVars()
@@ -1378,7 +1378,7 @@ end
 
 -- Check whether the entity is part of the mech
 function ENT:IsMechPart(v)
-	if v == self or v == self.Mech or v == self.KeepUpRightProp or v == self.MechUserEnt or v == self.UserSeat or v == self.TempMissile or v == self.ShieldSprite or v == self.NPCTarget or v == self.NPCTarget2 then
+	if v == self or v == self.Mech or v == self.KeepUpRightProp or v == self.MechUserEnt or v == self.UserSeat or v == self.TempMissile or v == self.ShieldSphere or v == self.NPCTarget or v == self.NPCTarget2 then
 		return true
 	end
 
