@@ -290,7 +290,8 @@ local function drawHud()
 		end
 
 		-- Altitude text
-		draw.SimpleText("ALT: " .. worldZ .. "m", "CombineHudSmall", scrW * 0.045, scrH * 0.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		local displayHeight = math.Round(flyHeight)
+		draw.SimpleText("ALT: " .. string.format("%03d", displayHeight) .. "m", "CombineHudText", scrW * 0.045, scrH * 0.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
 		-- Horizon line
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)

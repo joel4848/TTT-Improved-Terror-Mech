@@ -3,7 +3,9 @@ AddCSLuaFile("shared.lua")
 include("shared.lua")
 
 local MathAbs    = math.abs
+local MathCeil	 = math.ceil
 local MathClamp  = math.Clamp
+local MathFloor	 = math.floor
 local MathMax    = math.max
 local MathMin    = math.min
 local MathRandom = math.random
@@ -339,10 +341,20 @@ end
 -------------------------------------------
 
 function ENT:SyncNetVars()
-	self:SetMechHealthPct(MathClamp(math.ceil((self.MechHealth / self.MechMaxHealth) * 100), 0, 100))
-	self:SetShieldPercentage(MathClamp(math.floor((self.Energy / self.MaxEnergy) * 100), 0, 100))
+	self:SetMechHealthPct(MathClamp(MathCeil((self.MechHealth / self.MechMaxHealth) * 100), 0, 100))
+	self:SetShieldPercentage(MathClamp(MathFloor((self.Energy / self.MaxEnergy) * 100), 0, 100))
 	self:SetWeaponType(self.WepType)
-	self:SetFlyHeight(math.floor(self.FlyHeight))
+
+	-- Units to metres
+	local currentMeters = self.FlyHeight * 0.01905
+	local networkedMeters = MathFloor(currentMeters)
+
+	self.LastNetworkedMeters = self.LastNetworkedMeters or 0
+
+	if networkedMeters ~= self.LastNetworkedMeters then
+		self:SetFlyHeight(networkedMeters)
+		self.LastNetworkedMeters = networkedMeters
+	end
 
 	-- Only send info for current weapon
 	local wepState = self.WeaponStates[self.WepType]
@@ -601,7 +613,7 @@ function ENT:PhysicsUpdate(physics)
 			end
 
 			-- Attacking
-			if self.User:KeyDown(IN_ATTACK) and self.FlyHeight <= 0 and IsValid(self.KeepUpRightCon) then
+			if self.User:KeyDown(IN_ATTACK) and (GetConVar("ttt_improvedmech_attack_while_flying"):GetBool() or self.FlyHeight <= 0) and IsValid(self.KeepUpRightCon) then
 				if not wepState.isReloading and curTime >= wepState.nextFire then
 					if wepState.clip > 0 then
 
@@ -828,13 +840,6 @@ function ENT:Think()
 			self.ShieldSprite:SetKeyValue("rendercolor", rCol .. " " .. gCol .. " " .. bCol)
 		end
 
-		-- Increase fly height if the player is pressing jump
-		if IsValid(self.User) and self.User:KeyDown(IN_JUMP) then
-			self.FlyHeight = MathMin(self.FlyHeight + 20, 1000)
-		else
-			self.FlyHeight = MathMax(0, self.FlyHeight)
-		end
-
 		self.DotProd = self:GetUp():Dot(Vector(0, 0, 1))
 		self:Steady()
 
@@ -1010,7 +1015,7 @@ end
 function ENT:Hover()
 	if not IsValid(self.Mech) then return false end
 
-		-- Get the distance between the mech and the ground
+	-- Get the distance between the mech and the ground
 	local tr = util.TraceLine({
 		start  = self.Mech:GetPos(),
 		endpos = self.Mech:GetPos() + Vector(0, 0, self.HoverHeight * -1),
@@ -1018,20 +1023,22 @@ function ENT:Hover()
 	})
 
 	if tr.Hit then
-		local distance 	 = self.Mech:GetPos():Distance(tr.HitPos)
-		local force    	 = (self.HoverHeight - distance) * self.HoverMultiplier
-		local difference = ((self.FlyHeight + 130) - distance)
-
-		if difference > 100 then
-			self.FlyHeight = MathMax(1, distance - 130)
-		end
+		local distance = self.Mech:GetPos():Distance(tr.HitPos)
+		local force    = (self.HoverHeight - distance) * self.HoverMultiplier
 
 		-- Max thrust is 50
 		force = MathMin(force, 50)
 
-		-- Decrease the hover height if the player isn't pressing the jump button or if there is no player controlling it
-		if (IsValid(self.User) and not self.User:KeyDown(IN_JUMP)) or not IsValid(self.User) then
-			self.FlyHeight = MathMax(0, self.FlyHeight - 2)
+		local climbRate   = 3
+		local descentRate = 5
+
+		local maxMeters = GetConVar("ttt_improvedmech_altitude_max"):GetInt()
+		local maxUnits  = MathMax(maxMeters / 0.01905)
+
+		if IsValid(self.User) and self.User:KeyDown(IN_JUMP) then
+			self.FlyHeight = MathMin(self.FlyHeight + climbRate, maxUnits)
+		else
+			self.FlyHeight = MathMax(0, self.FlyHeight - descentRate)
 		end
 
 		-- Apply the force
