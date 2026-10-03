@@ -89,10 +89,10 @@ ENT.Spawner               = nil
 ENT.UserSeat              = nil
 
 -- Health
-ENT.MechHealth    = 400
-ENT.MechMaxHealth = 400
-ENT.DamageLevel   = 0
-ENT.SmokeEffect   = nil
+ENT.MechHealth    		 = 400
+ENT.MechMaxHealth 		 = 400
+ENT.DamageLevel   		 = 0
+ENT.SmokeEffect   		 = nil
 
 -- Initial weapon states
 ENT.WepType      = 1
@@ -152,12 +152,13 @@ ENT.JetPlay         = false
 ENT.ChargeVortSound = nil
 
 -- Shield
-ENT.Energy       = 100
-ENT.MaxEnergy    = 100
-ENT.UpdateShield = CurTime()
-ENT.ShieldEffDel = CurTime()
-ENT.ShieldDown   = false
-ENT.ShieldSprite = nil
+ENT.Energy             = 100
+ENT.MaxEnergy          = 100
+ENT.NextShieldRecharge = 0
+ENT.UpdateShield       = CurTime()
+ENT.ShieldEffDel       = CurTime()
+ENT.ShieldDown         = false
+ENT.ShieldSprite       = nil
 
 function ENT:SpawnFunction(ply, tr)
 	if not tr.Hit then return end
@@ -190,6 +191,16 @@ function ENT:Initialize()
 	end
 
 	self.User = nil
+
+	-- Set health/shield
+	local maxHP = GetConVar("ttt_improvedmech_max_health"):GetInt()
+	local maxShield = GetConVar("ttt_improvedmech_max_shield"):GetInt()
+
+	self.MechMaxHealth 		= maxHP > 0 and maxHP or 100
+	self.MechHealth    		= self.MechMaxHealth
+	self.MaxEnergy     		= maxShield >= 0 and maxShield or 100
+	self.Energy        		= self.MaxEnergy
+	self.NextShieldRecharge = 0
 
 	-- Spawn the mech ragdoll
 	self.Mech = ents.Create("prop_ragdoll")
@@ -273,6 +284,13 @@ function ENT:Initialize()
 	self.UserSeat:DrawShadow(false)
 	self.UserSeat:SetNotSolid(true)
 	self.UserSeat:GetPhysicsObject():EnableGravity(false)
+
+	-- Set parents for damage stuff
+	self.ParentMech                 = self
+	self.Mech.ParentMech            = self
+	self.KeepUpRightProp.ParentMech = self
+	self.MechUserEnt.ParentMech     = self
+	self.UserSeat.ParentMech        = self
 
 	-- Initialise ammo
 	self.WeaponStates = {}
@@ -438,18 +456,114 @@ end
 
 -- Mech damage
 function ENT:OnTakeDamage(dmg)
-	local damage = 0
+	if self.MechHealth <= 0 then return end
 
-	if dmg:IsExplosionDamage() then
-		damage = dmg:GetDamage() / 2
-	elseif dmg:GetInflictor():GetClass() == "sent_mechgrenadeTTT" then
-		damage = dmg:GetDamage() / 10
+	local pilot  = self.User
+	local damage = dmg:GetDamage()
+	if damage <= 0 then return end
+
+	local curTime = CurTime()
+
+	-- Over-damage to shield doesn't transfer to mech health (no one-shots!)
+	if self.Energy > 0 then
+		-- Damage shield first
+		self.Energy = MathMax(self.Energy - damage, 0)
+
+		-- Shield broken
+		if self.Energy <= 0 then
+			self.ShieldDown = true
+			self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_break_delay"):GetFloat()
+
+			self:EmitSound("combine mech/ShieldDown.wav", 85, MathRandom(80, 120))
+
+			local effectdata = EffectData()
+			effectdata:SetStart(self:GetPos())
+			effectdata:SetOrigin(self:GetPos())
+			effectdata:SetScale(1)
+			util.Effect("cball_explode", effectdata)
+		else
+			self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_recharge_delay"):GetFloat()
+		end
+	-- Shield is 0 so reduce mech's health
 	else
-		damage = dmg:GetDamage() / 4
+		if damage > self.MechHealth then
+			local overdamage = damage - self.MechHealth
+			self.MechHealth = 0
+
+			-- Over-damage DOES get passed onto the pilot unless bullet damage (as this wouldn't logically damage the pilot)
+			if IsValid(pilot) and pilot:Alive() then
+				self:RemoveUser()
+
+				if not dmg:IsBulletDamage() then -- Don't apply over-damage from bullets, because that doesn't really make sense
+					pilot.AllowMechOverdamage = true
+
+					local plyDmg = DamageInfo()
+					plyDmg:SetDamage(overdamage)
+					plyDmg:SetAttacker(dmg:GetAttacker())
+					plyDmg:SetInflictor(dmg:GetInflictor())
+					plyDmg:SetDamageType(dmg:GetDamageType())
+
+					pilot:TakeDamageInfo(plyDmg)
+
+					local ply = pilot
+					timer.Simple(0, function()
+						if IsValid(ply) then
+							ply.AllowMechOverdamage = nil
+						end
+					end)
+				end
+			end
+		else
+			self.MechHealth = self.MechHealth - damage
+		end
 	end
 
-	self.MechHealth = self.MechHealth - damage
+	self:SyncNetVars()
 end
+
+hook.Add("EntityTakeDamage", "TTT_ImprovedMech_DamageHandler", function(target, dmginfo)
+	if not IsValid(target) then return end
+
+	if target:IsPlayer() and target:InVehicle() then
+		-- Allow over-damage to the pilot if the flag is set
+		if target.AllowMechOverdamage then
+			PrintMessage(HUD_PRINTTALK, "target = " .. tostring(target))
+			PrintMessage(HUD_PRINTTALK, "damage = " .. tostring(dmginfo:GetDamage()))
+			return
+		end
+
+		local seat = target:GetVehicle()
+		local mech = IsValid(seat) and seat.ParentMech or target:GetNWEntity("CombineMechEnt")
+
+		-- Otherwise, don't
+		if IsValid(mech) then
+			dmginfo:SetDamage(0)
+			dmginfo:ScaleDamage(0)
+			return true
+		end
+	end
+
+	-- Make sure damage to any other part of the mech is applied only to the parent
+	local mech = target.ParentMech
+	if IsValid(mech) then
+		local currentFrame = FrameNumber()
+		if mech.LastDamageFrame == currentFrame and mech.LastDamageAmount == dmginfo:GetDamage() then
+			dmginfo:SetDamage(0)
+			dmginfo:ScaleDamage(0)
+			return true
+		end
+
+		mech.LastDamageFrame = currentFrame
+		mech.LastDamageAmount = dmginfo:GetDamage()
+
+		if target ~= mech then
+			mech:TakeDamageInfo(dmginfo)
+			dmginfo:SetDamage(0)
+			dmginfo:ScaleDamage(0)
+			return true
+		end
+	end
+end)
 
 -- Mech physics
 function ENT:PhysicsUpdate(physics)
@@ -482,7 +596,10 @@ function ENT:PhysicsUpdate(physics)
 		self.UserSeat:SetAngles(Angle(0, 0, 0))
 
 		-- Recharge shield
-		self.Energy = MathMin(self.Energy + 0.04, self.MaxEnergy)
+		if curTime >= self.NextShieldRecharge and self.Energy < self.MaxEnergy then
+			local rate = GetConVar("ttt_improvedmech_shield_recharge_rate"):GetFloat()
+			self.Energy = MathMin(self.Energy + (rate * FrameTime()), self.MaxEnergy)
+		end
 
 		-- Hover
 		if (self.FootStatus > 0 or self.FlyHeight > 0) and (self.DotProd >= 0.7 or self.JetPlay) then
@@ -843,10 +960,9 @@ function ENT:Think()
 		self.DotProd = self:GetUp():Dot(Vector(0, 0, 1))
 		self:Steady()
 
-		-- Play sound and set shield energy to 25% when it restores
+		-- Play sound when broken shield starts restoring
 		if self.ShieldDown and self.Energy > 0 then
 			self.ShieldDown = false
-			self.Energy = 25
 			self:EmitSound("combine mech/ShieldUp.wav", 85, MathRandom(80, 120))
 		end
 	else
@@ -859,6 +975,11 @@ function ENT:Think()
 		if IsValid(self.KeepUpRightCon) then
 			self.KeepUpRightCon:Remove()
 			self.KeepUpRightCon = nil
+		end
+
+		if IsValid(self.UserSeat) then
+			self.UserSeat:Remove()
+			self.UserSeat = nil
 		end
 
 		-- Make NPCs stop shooting at it
