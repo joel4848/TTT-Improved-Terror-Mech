@@ -183,17 +183,15 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 		surface.DrawOutlinedRect(x + 1, y + 1, w - 2, h - 2)
 
 		-- Text labels
-		local shadowColour = Color(0, 0, 0, 255)
+		local outlineColour = Color(0, 0, 0, 255)
 		local centerX 	= x + (w / 2)
 
 		-- Name
-		draw.SimpleText(titleText, "CombineHudSmall", centerX + 1, y - 13, shadowColour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
-		draw.SimpleText(titleText, "CombineHudSmall", centerX, 	   y - 14, colour, 	  TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+		draw.SimpleTextOutlined(titleText, "CombineHudText", centerX, y - 14, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, outlineColour)
 
 		-- Distance
 		local distanceText = MathRound(distance * 0.0254) .. "m"
-		draw.SimpleText(distanceText, "CombineHudSmall", centerX + 1, y + h + 5, shadowColour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
-		draw.SimpleText(distanceText, "CombineHudSmall", centerX, 	  y + h + 4, colour, 	TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+		draw.SimpleTextOutlined(distanceText, "CombineHudText", centerX, y + h + 4, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, outlineColour)
 	end
 
 	-- Target Players
@@ -217,6 +215,8 @@ local function drawHud()
 	local ply = LocalPlayer()
 	if not IsValid(ply) or not ply:Alive() or not ply:InVehicle() then return end
 	if GetViewEntity() ~= ply then return end
+
+	local outlineColour = Color(0, 0, 0, 255)
 
 	local controlState = ply:GetNWInt("ControlsCombineMech", 0)
 	if controlState <= 0 and ply.MechViewMode then
@@ -297,7 +297,7 @@ local function drawHud()
 
 		-- Altitude text
 		local displayHeight = math.Round(flyHeight)
-		draw.SimpleText("ALT: " .. string.format("%03d", displayHeight) .. "m", "CombineHudText", scrW * 0.045, scrH * 0.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		draw.SimpleTextOutlined("ALT: " .. string.format("%03d", displayHeight) .. "m", "CombineHudText", scrW * 0.045, scrH * 0.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColour)
 
 		-- Horizon line
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
@@ -346,12 +346,12 @@ local function drawHud()
 		local reserveText = (reserve == 0) and "∞" or tostring(reserve)
 		local ammoText    = string.format("%d / %s", clip, reserveText)
 
-		draw.SimpleText(ammoText, "CombineHudText", ammoX, ammoY, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		draw.SimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColour)
 
 		if isReloading then
 			local rBarW = scrW * 0.08
 			local rBarH = scrH * 0.015
-			draw.SimpleText("RELOADING", "CombineHudSmall", ammoX, ammoY + (scrH * 0.02), colours.heatWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM)
+			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX, ammoY + (scrH * 0.02), colours.heatWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM, 1, outlineColour)
 			drawOutlinedBar(ammoX, ammoY + (scrH * 0.025), rBarW, rBarH, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg)
 		end
 
