@@ -1,9 +1,15 @@
 include("shared.lua")
 
+local MathCos  = math.cos
+local MathPi   = math.pi
+local MathRand = math.Rand
+local MathSin  = math.sin
+
+local RenderDrawBeam 	= render.DrawBeam
+local RenderSetMaterial = render.SetMaterial
 
 function ENT:Initialize()
 end
-
 
 function ENT:Think()
 	local useEff = self:GetIsFlying()
@@ -17,19 +23,19 @@ function ENT:MakeSmoke()
 
 	self.SmokeTimer = CurTime() + 0.015
 
-	local vOffset = self:GetPos() + self:GetUp() * -20 + Vector(math.Rand(-5, 5), math.Rand(-5, 5), math.Rand(-5, 5))
-	local vNormal = Vector(math.Rand(-5,5),math.Rand(-5,5),-20)
+	local vOffset = self:GetPos() + self:GetUp() * -20 + Vector(MathRand(-5, 5), MathRand(-5, 5), MathRand(-5, 5))
+	local vNormal = Vector(MathRand(-5,5),MathRand(-5,5),-20)
 	local vel = self:GetVelocity()
 
 	local emitter = self:GetEmitter(vOffset, false)
 
 	local particle = emitter:Add("particles/smokey", vOffset)
-	particle:SetVelocity(vNormal * math.Rand(10, 30) + Vector(0,0,vel.z))
+	particle:SetVelocity(vNormal * MathRand(10, 30) + Vector(0,0,vel.z))
 	particle:SetDieTime(1.0)
-	particle:SetStartAlpha(math.Rand(50, 150))
-	particle:SetStartSize(math.Rand(5, 16))
-	particle:SetEndSize(math.Rand(64, 100))
-	particle:SetRoll(math.Rand(-0.2, 0.2))
+	particle:SetStartAlpha(MathRand(50, 150))
+	particle:SetStartSize(MathRand(5, 16))
+	particle:SetEndSize(MathRand(64, 100))
+	particle:SetRoll(MathRand(-0.2, 0.2))
 	particle:SetColor(Color(200, 200, 210))
 
 	particle:SetCollide(true);
@@ -47,4 +53,47 @@ function ENT:GetEmitter(Pos, b3D)
 	self.EmitterIs3D = b3D
 	self.EmitterTime = CurTime() + 2
 	return self.Emitter
+end
+
+local beamMaterial = Material("effects/laser1")
+
+function ENT:Draw()
+	self:DrawModel()
+
+	local shieldFraction = self:GetShieldPercentage() / 100
+
+	if shieldFraction > 0 then
+		local startPos = self:GetPos() + Vector(0, 0, 40)
+		local height   = 60
+		local radius   = 145 -- Beam bendyness
+
+		local rColour = 255 - 135 * shieldFraction
+		local gColour = 200 * shieldFraction
+		local bColour = 255 * shieldFraction
+
+		local colour = Color(rColour, gColour, bColour, 255)
+
+		RenderSetMaterial(beamMaterial)
+
+		-- Centre beam
+		RenderDrawBeam(startPos, startPos + Vector(0, 0, height), 80, 0, 1, colour)
+
+		-- Rotating stalks
+		for stalkNumber = 1, 6 do
+			local stalkHeight 	= height * 0.95
+			local rotationAngle = (stalkNumber / 6) * MathPi * 2 + (CurTime() * 0.60)
+			local endPos  	  	= startPos + Vector(MathCos(rotationAngle) * radius * 0.31, MathSin(rotationAngle) * radius * 0.31, stalkHeight)
+			local bendPos  	  	= startPos + Vector(0, 0, stalkHeight * 0.65)
+			local lastPos 	  	= startPos
+
+			for segment = 1, 15 do
+				local curveProgress = segment / 15
+				local segmentEnd 	= LerpVector(curveProgress, LerpVector(curveProgress, startPos, bendPos), LerpVector(curveProgress, bendPos, endPos))
+
+				RenderDrawBeam(lastPos, segmentEnd, 40, 0, 1, colour)
+
+				lastPos = segmentEnd
+			end
+		end
+	end
 end

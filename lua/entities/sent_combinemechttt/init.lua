@@ -161,6 +161,20 @@ ENT.ShieldEffDel       = CurTime()
 ENT.ShieldDown         = false
 ENT.ShieldSprite       = nil
 
+-- TESTING
+local devMode = CreateConVar("ttt_improvedmech_dev_mode", 0, FCVAR_NONE, "Enables dev mode", 0, 1):GetBool()
+
+if devMode then
+	hook.Add("TTTBeginRound", "ImprovedMechTestGiveNade", function()
+		for _, ply in player.Iterator() do
+			ply:Give("weapon_ttt_mechnade")
+			ply:SelectWeapon("weapon_ttt_mechnade")
+		end
+	end)
+else
+	hook.Remove("TTTBeginRound", "ImprovedMechTestGiveNade")
+end
+
 function ENT:SpawnFunction(ply, tr)
 	if not tr.Hit then return end
 
@@ -247,26 +261,56 @@ function ENT:Initialize()
 
 	-- Mech entry button
 	self.MechUserEnt = ents.Create("sent_combinemechUserTTT")
-	self.MechUserEnt:SetPos(self:GetPos() + Vector(27, 0.5, -18))
-	self.MechUserEnt:SetAngles(Angle(0, 0, 90))
+	self.MechUserEnt:SetModelScale(0.95, 0)
+	self.MechUserEnt:SetPos(self:GetPos() + Vector(11.5, -0.5, -50))
+	self.MechUserEnt:SetAngles(Angle(90, 180, 90))
 	self.MechUserEnt:Spawn()
 	self.MechUserEnt:DrawShadow(false)
 	self.MechUserEnt:SetNWEntity("CombineMechEnt", self)
 	constraint.Weld(self.Mech, self.MechUserEnt, 0, 0, 0, true)
 
+	-- Entry button light
+	self.EntryButtonLight = ents.Create("env_sprite")
+	self.EntryButtonLight:SetPos(self:GetPos() + Vector(11.5, -2, -60))
+	self.EntryButtonLight:SetKeyValue("renderfx", "14")
+	self.EntryButtonLight:SetKeyValue("model", "sprites/glow01.vmt")
+	self.EntryButtonLight:SetKeyValue("scale", "1.0")
+	self.EntryButtonLight:SetKeyValue("spawnflags", "1")
+	self.EntryButtonLight:SetKeyValue("rendermode", "9")
+	self.EntryButtonLight:SetKeyValue("renderfx", "10")
+	self.EntryButtonLight:SetKeyValue("renderamt", "255")
+	self.EntryButtonLight:SetKeyValue("rendercolor", "0 255 0")
+	self.EntryButtonLight:Spawn()
+	self.EntryButtonLight:SetParent(self.KeepUpRightProp)
+
+	-- Antenna light
+	self.AntennaLight = ents.Create("env_sprite")
+	self.AntennaLight:SetPos(self:GetPos() + Vector(-50, -13, 84))
+	self.AntennaLight:SetKeyValue("renderfx", "14")
+	self.AntennaLight:SetKeyValue("model", "sprites/glow01.vmt")
+	self.AntennaLight:SetKeyValue("scale", "1.0")
+	self.AntennaLight:SetKeyValue("spawnflags", "1")
+	self.AntennaLight:SetKeyValue("rendermode", "9")
+	self.AntennaLight:SetKeyValue("renderfx", "9")
+	self.AntennaLight:SetKeyValue("rendercolor", "206 1 0")
+	self.AntennaLight:Spawn()
+	-- If I want it to start at 0 apparently I have to set it after it spawns, otherwise it never appears
+	self.AntennaLight:SetKeyValue("renderamt", "0")
+	self.AntennaLight:SetParent(self.KeepUpRightProp)
+
 	-- Shield Sphere
 	self.ShieldSphere = ents.Create("prop_dynamic")
-	self.ShieldSphere:SetModel("models/hunter/misc/sphere2x2.mdl")
+	self.ShieldSphere:SetModel("models/cm/shield.mdl")
 	self.ShieldSphere:SetPos(self:GetPos() + Vector(0, 0, -40))
 	self.ShieldSphere:SetAngles(Angle(0, 0, 0))
 	self.ShieldSphere:Spawn()
 	self.ShieldSphere:SetParent(self.KeepUpRightProp)
 
-	self.ShieldSphere:SetMaterial("models/debug/debugwhite")
+	self.ShieldSphere:SetMaterial("models/props_combine/portalball001_sheet")
 	self.ShieldSphere:SetRenderMode(RENDERMODE_TRANSCOLOR)
-	self.ShieldSphere:SetColor(Color(120, 200, 255, 60))
+	self.ShieldSphere:SetColor(Color(120, 200, 255, 240))
 
-	self.ShieldSphere:SetModelScale(2.7, 0)
+	self.ShieldSphere:SetModelScale(0.6, 0)
 	self.ShieldSphere:SetNotSolid(true)
 	self.ShieldSphere:DrawShadow(false)
 
@@ -709,7 +753,7 @@ function ENT:PhysicsUpdate(physics)
 					local tr = util.TraceLine({
 						start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 						endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 400),
-						filter = {self, self.Mech, self.KeepUpRightProp, self.TempMissile}
+						filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.TempMissile}
 					})
 					self.TempMissile.DestPos = tr.HitPos
 
@@ -781,7 +825,7 @@ function ENT:PhysicsUpdate(physics)
 							local tr = util.TraceLine({
 								start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 								endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 4000),
-								filter = {self, self.Mech, self.KeepUpRightProp}
+								filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 							})
 							self.StormTargetPos = tr.HitPos
 
@@ -948,12 +992,13 @@ function ENT:Think()
 			if self.Energy > 0 then
 				self.ShieldSphere:SetNoDraw(false)
 
-				local energyPercentage = math.Clamp(self.Energy / self.MaxEnergy, 0, 1)
-				local rCol = 120 + 135 * (1 - energyPercentage)
-				local gCol = 200 * energyPercentage
-				local bCol = 255 * energyPercentage
+				local energyPercentage = MathClamp(self.Energy / self.MaxEnergy, 0, 1)
 
-				self.ShieldSphere:SetColor(Color(rCol, gCol, bCol, 60))
+				local rColour = 255 - 135 * energyPercentage
+				local gColour = 200 * energyPercentage
+				local bColour = 255 * energyPercentage
+
+				self.ShieldSphere:SetColor(Color(rColour, gColour, bColour, 255))
 			else
 				self.ShieldSphere:SetNoDraw(true)
 			end
@@ -1082,6 +1127,9 @@ function ENT:SetUser(ply)
 	if CurTime() < (self.EnterDel or 0) then return end
 	self.EnterDel = CurTime() + 1
 
+	self.AntennaLight:SetKeyValue("renderamt", "255")
+	self.EntryButtonLight:SetKeyValue("renderamt", "0")
+
 	self.User = ply
 	self.User:EnterVehicle(self.UserSeat)
 	self.User:SetColor(Color(255, 255, 255, 0))
@@ -1126,6 +1174,10 @@ end
 function ENT:EnterMech(ply)
 	if not IsValid(self.User) then
 		self:SetUser(ply)
+
+		self.AntennaLight:SetKeyValue("renderamt", "255")
+		self.EntryButtonLight:SetKeyValue("renderamt", "0")
+
 		return true
 	end
 
@@ -1134,6 +1186,9 @@ end
 
 function ENT:RemoveUser()
 	if IsValid(self.User) then
+		self.AntennaLight:SetKeyValue("renderamt", "0")
+		self.EntryButtonLight:SetKeyValue("renderamt", "255")
+
 		self.User:ExitVehicle()
 		self.User:SetColor(Color(255, 255, 255, 255))
 		self.User:SetPos(self:GetPos() + self:GetForward() * 70 + self:GetUp() * -80)
@@ -1149,7 +1204,7 @@ function ENT:Hover()
 	local tr = util.TraceLine({
 		start  = self.Mech:GetPos(),
 		endpos = self.Mech:GetPos() + Vector(0, 0, self.HoverHeight * -1),
-		filter = {self, self.Mech, self.KeepUpRightProp}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 	})
 
 	if tr.Hit then
@@ -1192,7 +1247,7 @@ function ENT:UpdateFootStatus()
 	local tr1 = util.TraceLine({
 		start  = bonepos1,
 		endpos = bonepos1 + Vector(0, 0, -30),
-		filter = {self, self.Mech, self.KeepUpRightProp}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 	})
 
 	if tr1.Hit then
@@ -1202,7 +1257,7 @@ function ENT:UpdateFootStatus()
 	local tr2 = util.TraceLine({
 		start  = bonepos2,
 		endpos = bonepos2 + Vector(0, 0, -30),
-		filter = {self, self.Mech, self.KeepUpRightProp}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 	})
 
 	if tr2.Hit and self.FootStatus == 1 then
@@ -1520,7 +1575,7 @@ function ENT:ShootScreamer()
 	local tr = util.TraceLine({
 		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 999999),
-		filter = {self, self.Mech, self.KeepUpRightProp}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 	})
 
 	local bomb = ents.Create("sent_mechscreamerbombTTT")
@@ -1547,7 +1602,7 @@ function ENT:ShootGravProbe()
 	local tr = util.TraceLine({
 		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 400),
-		filter = {self, self.Mech, self.KeepUpRightProp}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 	})
 
 	local grav = ents.Create("sent_mechgravprobeTTT")
@@ -1614,7 +1669,7 @@ function ENT:ShootRocket()
 	local tr = util.TraceLine({
 		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 4000),
-		filter = {self, self.Mech, self.KeepUpRightProp}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
 	})
 
 	local missile = ents.Create("sent_mechmissileTTT")
