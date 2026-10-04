@@ -1367,8 +1367,8 @@ function ENT:Steady()
 		self.Mech:GetPhysicsObjectNum(9):EnableGravity(false)
 		self.Mech:GetPhysicsObjectNum(10):EnableGravity(false)
 	elseif IsValid(self.KeepUpRightCon) and (self.FootStatus == 0 or badLeg or self:WaterLevel() >= 1) and self.FlyHeight == 0 and self.JetTimer < CurTime() then
-		self.KeepUpRightCon:Remove()
-		self.KeepUpRightCon = nil
+		-- self.KeepUpRightCon:Remove()
+		-- self.KeepUpRightCon = nil
 		self.Mech:GetPhysicsObjectNum(3):EnableGravity(true)
 		self.Mech:GetPhysicsObjectNum(4):EnableGravity(true)
 		self.Mech:GetPhysicsObjectNum(9):EnableGravity(true)
