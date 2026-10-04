@@ -97,3 +97,20 @@ function ENT:Draw()
 		end
 	end
 end
+
+local crosshairDefault = GetConVar("ttt_crosshair_opacity"):GetFloat() or 1
+
+function ENT:OnRemove()
+	RunConsoleCommand("ttt_crosshair_opacity", crosshairDefault)
+end
+
+net.Receive("TTT_ImprovedMech_Crosshair", function()
+	local viewMode = net.ReadInt(8)
+
+	if viewMode == 2 then
+		crosshairDefault = GetConVar("ttt_crosshair_opacity"):GetFloat() or 1
+		RunConsoleCommand("ttt_crosshair_opacity", 0)
+	else
+		RunConsoleCommand("ttt_crosshair_opacity", crosshairDefault)
+	end
+end)

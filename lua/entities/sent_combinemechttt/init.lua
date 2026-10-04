@@ -3,6 +3,7 @@ AddCSLuaFile("shared.lua")
 include("shared.lua")
 
 util.AddNetworkString("TTT_ImprovedMech_ForceView")
+util.AddNetworkString("TTT_ImprovedMech_Crosshair")
 
 local MathAbs    = math.abs
 local MathCeil	 = math.ceil
@@ -164,16 +165,14 @@ ENT.ShieldSprite       = nil
 -- TESTING
 local devMode = CreateConVar("ttt_improvedmech_dev_mode", 0, FCVAR_NONE, "Enables dev mode", 0, 1):GetBool()
 
-if devMode then
-	hook.Add("TTTBeginRound", "ImprovedMechTestGiveNade", function()
+hook.Add("TTTBeginRound", "ImprovedMechTestGiveNade", function()
+	if devMode then
 		for _, ply in player.Iterator() do
 			ply:Give("weapon_ttt_mechnade")
 			ply:SelectWeapon("weapon_ttt_mechnade")
 		end
-	end)
-else
-	hook.Remove("TTTBeginRound", "ImprovedMechTestGiveNade")
-end
+	end
+end)
 
 function ENT:SpawnFunction(ply, tr)
 	if not tr.Hit then return end
@@ -620,12 +619,24 @@ function ENT:PhysicsUpdate(physics)
 		if self.User:KeyDown(IN_ATTACK2) and self.ChangeViewCooldown < curTime then
 			self.ChangeViewCooldown = curTime + 0.5
 
+			local viewMode = nil
+
 			if self.ChangeView then
+				viewMode = 2
 				self.User:SetNWInt("ControlsCombineMech", 2)
 				self.ChangeView = false
 			else
+				viewMode = 1
 				self.User:SetNWInt("ControlsCombineMech", 1)
 				self.ChangeView = true
+			end
+
+			if viewMode then
+				net.Start("TTT_ImprovedMech_Crosshair")
+					net.WriteInt(viewMode, 8)
+				net.Send(self.User)
+
+				viewMode = nil
 			end
 		end
 
@@ -1077,6 +1088,11 @@ function ENT:Think()
 end
 
 function ENT:OnRemove()
+	if IsValid(self.User) then
+		net.Start("TTT_ImprovedMech_Crosshair")
+			net.WriteInt(0, 8)
+		net.Send(self.User)
+	end
 	if IsValid(self.Mech) then self.Mech:Remove() end
 	if IsValid(self.UserSeat) then self.UserSeat:Remove() end
 	if IsValid(self.KeepUpRightProp) then self.KeepUpRightProp:Remove() end
@@ -1129,6 +1145,10 @@ function ENT:SetUser(ply)
 
 	self.AntennaLight:SetKeyValue("renderamt", "255")
 	self.EntryButtonLight:SetKeyValue("renderamt", "0")
+
+	net.Start("TTT_ImprovedMech_Crosshair")
+		net.WriteInt(2, 8)
+	net.Send(ply)
 
 	self.User = ply
 	self.User:EnterVehicle(self.UserSeat)
@@ -1188,6 +1208,10 @@ function ENT:RemoveUser()
 	if IsValid(self.User) then
 		self.AntennaLight:SetKeyValue("renderamt", "0")
 		self.EntryButtonLight:SetKeyValue("renderamt", "255")
+
+		net.Start("TTT_ImprovedMech_Crosshair")
+			net.WriteInt(0, 8)
+		net.Send(self.User)
 
 		self.User:ExitVehicle()
 		self.User:SetColor(Color(255, 255, 255, 255))

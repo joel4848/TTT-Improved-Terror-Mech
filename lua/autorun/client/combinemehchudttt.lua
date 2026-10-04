@@ -311,20 +311,10 @@ local function drawHud()
 		surface.SetDrawColor(255, 255, 255, 255)
 		surface.DrawTexturedRect(0, 0, scrW, scrH)
 
-		-- Horrible crosshair textures
-		local heightRatio = MathClamp(1 - (flyHeight / 1000), 0, 1)
-		local crosshairColour = Color(255 - (135 * heightRatio), heightRatio * 200, heightRatio * 250, 255)
-
+		-- Custom crosshair
 		local crosshairW = scrW * 0.125
 		local crosshairH = scrH * 0.222
-		local rotFixed = heightRatio * 100
 
-		-- Inner crosshair
-		surface.SetTexture(textures.crosshair1)
-		surface.SetDrawColor(crosshairColour.r, crosshairColour.g, crosshairColour.b, 255)
-		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, rotFixed)
-
-		-- Outer crosshair
 		crosshairRotation = crosshairRotation + 0.1
 		surface.SetTexture(textures.crosshair2)
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
@@ -433,7 +423,5 @@ local function hideStandardHud(elementName)
 		end
 	end
 end
-
-hook.Add("HUDShouldDraw", "CombineMechHideHud", hideStandardHud)
 
 hook.Add("HUDShouldDraw", "CombineMechHideHud", hideStandardHud)
