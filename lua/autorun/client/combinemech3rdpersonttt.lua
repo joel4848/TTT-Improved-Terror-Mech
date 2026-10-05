@@ -42,7 +42,7 @@ hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov
 
 		if IsValid(ent) then
 			if useCam == 1 then
-				local pos = ent:GetPos() + (angles:Forward() * -300)
+				local pos = ent:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
 
 				local Trace = {}
 				Trace.start = ent:GetPos() + (angles:Forward() * -100)

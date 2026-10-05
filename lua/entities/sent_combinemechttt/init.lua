@@ -1568,26 +1568,61 @@ end
 -------------------------------------------
 
 function ENT:ShootBullet()
+	if not IsValid(self.User) or not IsValid(self.KeepUpRightProp) then return end
+
+	local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
+
+	local ply = self.User
+	local aimDirection = ply:GetAimVector()
+
+	if self.ChangeView == true then
+		local angles = ply:EyeAngles()
+
+		local cameraPos = self:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
+
+		local cameraTrace = {
+			start = self:GetPos() + (angles:Forward() * -100),
+			endpos = cameraPos,
+			filter = {ply, self, self.KeepUpRightProp}
+		}
+
+		local cameraResult = util.TraceLine(cameraTrace)
+
+		if cameraResult.Hit then
+			cameraPos = cameraResult.HitPos
+		end
+
+		local aimTrace = {
+			start = cameraPos,
+			endpos = cameraPos + angles:Forward() * 100000,
+			filter = {ply, self, self.KeepUpRightProp}
+		}
+
+		local aimResult = util.TraceLine(aimTrace)
+		local aimPoint = aimResult.HitPos
+
+		aimDirection = (aimPoint - muzzlePos):GetNormalized()
+	end
+
 	self:EmitSound("weapons/ar1/ar1_dist" .. MathRandom(1, 2) .. ".wav", 75, MathRandom(80, 120))
-	local pos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
 
 	-- Muzzle flash
 	local effectdata = EffectData()
-	effectdata:SetOrigin(pos)
-	effectdata:SetAngles(self.User:GetAimVector():Angle())
+	effectdata:SetOrigin(muzzlePos)
+	effectdata:SetAngles(ply:GetAimVector():Angle())
 	effectdata:SetScale(1)
 	util.Effect("MuzzleEffect", effectdata)
 
 	local bullet = {
 		Num        = 1,
-		Src        = pos,
-		Dir        = self.User:GetAimVector(),
+		Src        = muzzlePos,
+		Dir        = aimDirection,
 		Spread     = Vector(0.03, 0.03, 0),
 		Tracer     = 1,
 		TracerName = "Tracer",
 		Force      = 0,
 		Damage     = 5,
-		Attacker   = self.User
+		Attacker   = ply
 	}
 
 	self:FireBullets(bullet)
