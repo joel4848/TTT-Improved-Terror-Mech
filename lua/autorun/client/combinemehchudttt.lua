@@ -295,10 +295,6 @@ local function drawHud()
 			end
 		end
 
-		-- Altitude text
-		local displayHeight = math.Round(flyHeight)
-		draw.SimpleTextOutlined("ALT: " .. string.format("%03d", displayHeight) .. "m", "CombineHudText", scrW * 0.045, scrH * 0.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColour)
-
 		-- Horizon line
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
 		local horizonOffset = mechEnt:GetRight():Dot(Vector(0, 0, 1)) * scrH
@@ -320,6 +316,14 @@ local function drawHud()
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
 		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 
+		-- Altitude text
+		local altitudeX       = scrW * 0.4
+		local altitudeY       = scrH * 0.5
+
+		local displayHeight = math.Round(flyHeight)
+		draw.SimpleTextOutlined("ALTITUDE: ", "CombineHudText", altitudeX, altitudeY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		draw.SimpleTextOutlined(string.format("%03d", displayHeight) .. "m", "CombineHudText", altitudeX, altitudeY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+
 		-- Ammo HUD
 		local clip        = mechEnt:GetAmmoClip()
 		local reserve     = mechEnt:GetAmmoReserve()
@@ -331,18 +335,19 @@ local function drawHud()
 			reloadFrac = MathClamp(1 - ((mechEnt:GetReloadEndTime() - CurTime()) / duration), 0, 1)
 		end
 
-		local ammoX       = scrW * 0.58
-		local ammoY       = scrH * 0.49
+		local ammoX       = scrW * 0.6
+		local ammoY       = scrH * 0.5
 		local reserveText = (reserve == 0) and "∞" or tostring(reserve)
 		local ammoText    = string.format("%d / %s", clip, reserveText)
 
-		draw.SimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColour)
+		draw.SimpleTextOutlined("AMMO:", "CombineHudText", ammoX, ammoY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		draw.SimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
 		if isReloading then
 			local rBarW = scrW * 0.08
-			local rBarH = scrH * 0.015
-			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX, ammoY + (scrH * 0.02), colours.heatWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM, 1, outlineColour)
-			drawOutlinedBar(ammoX, ammoY + (scrH * 0.025), rBarW, rBarH, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg)
+			local rBarH = scrH * 0.018
+			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX, ammoY + (scrH * 0.035), colours.heatWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM, 1, outlineColour)
+			drawOutlinedBar(ammoX, ammoY + (scrH * 0.04), rBarW, rBarH, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg)
 		end
 
 		local barW         = scrW * 0.28
