@@ -307,7 +307,7 @@ function ENT:Initialize()
 
 	self.ShieldSphere:SetMaterial("models/props_combine/portalball001_sheet")
 	self.ShieldSphere:SetRenderMode(RENDERMODE_TRANSCOLOR)
-	self.ShieldSphere:SetColor(Color(120, 200, 255, 240))
+	self.ShieldSphere:SetColor(Color(120, 200, 255, 50))
 
 	self.ShieldSphere:SetModelScale(0.6, 0)
 	self.ShieldSphere:SetNotSolid(true)
@@ -1009,7 +1009,7 @@ function ENT:Think()
 				local gColour = 200 * energyPercentage
 				local bColour = 255 * energyPercentage
 
-				self.ShieldSphere:SetColor(Color(rColour, gColour, bColour, 255))
+				self.ShieldSphere:SetColor(Color(rColour, gColour, bColour, 50))
 			else
 				self.ShieldSphere:SetNoDraw(true)
 			end
