@@ -91,8 +91,8 @@ ENT.Spawner               = nil
 ENT.UserSeat              = nil
 
 -- Health
-ENT.MechHealth    		 = 400
-ENT.MechMaxHealth 		 = 400
+ENT.MechHealth    		 = GetConVar("ttt_improvedmech_max_health"):GetInt()
+ENT.MechMaxHealth 		 = GetConVar("ttt_improvedmech_max_health"):GetInt()
 ENT.DamageLevel   		 = 0
 ENT.SmokeEffect   		 = nil
 
@@ -339,6 +339,9 @@ function ENT:Initialize()
 	self.KeepUpRightProp.ParentMech = self
 	self.MechUserEnt.ParentMech     = self
 	self.UserSeat.ParentMech        = self
+	if IsValid(self.ShieldSphere) then
+		self.ShieldSphere.ParentMech = self
+	end
 
 	-- Initialise ammo
 	self.WeaponStates = {}
@@ -493,111 +496,167 @@ end
 
 -- Mech damage
 function ENT:OnTakeDamage(dmg)
-	if self.MechHealth <= 0 then return end
+    if self.MechHealth <= 0 then return end
 
-	local pilot  = self.User
-	local damage = dmg:GetDamage()
-	if damage <= 0 then return end
+    local pilot  = self.User
+    local damage = dmg:GetDamage()
+    if damage <= 0 then return end
 
-	local curTime = CurTime()
+    local curTime = CurTime()
+    local currentFrame = FrameNumber()
 
-	-- Over-damage to shield doesn't transfer to mech health (no one-shots!)
-	if self.Energy > 0 then
-		-- Damage shield first
-		self.Energy = MathMax(self.Energy - damage, 0)
+    -- Over-damage to shield doesn't transfer to mech health (no one-shots!)
+    if self.Energy > 0 or self.ShieldBrokeFrame == currentFrame then
+        if self.Energy > 0 then
+            -- Damage shield first
+            self.Energy = MathMax(self.Energy - damage, 0)
 
-		-- Shield broken
-		if self.Energy <= 0 then
-			self.ShieldDown = true
-			self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_break_delay"):GetFloat()
+            -- Shield broken
+            if self.Energy <= 0 then
+                self.ShieldDown = true
+                self.ShieldBrokeFrame = currentFrame
+                self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_break_delay"):GetFloat()
 
-			self:EmitSound("combine mech/ShieldDown.wav", 85, MathRandom(80, 120))
+                self:EmitSound("combine mech/ShieldDown.wav", 85, MathRandom(80, 120))
 
-			local effectdata = EffectData()
-			effectdata:SetStart(self:GetPos())
-			effectdata:SetOrigin(self:GetPos())
-			effectdata:SetScale(1)
-			util.Effect("cball_explode", effectdata)
-		else
-			self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_recharge_delay"):GetFloat()
-		end
-	-- Shield is 0 so reduce mech's health
-	else
-		if damage > self.MechHealth then
-			local overdamage = damage - self.MechHealth
-			self.MechHealth = 0
+                local effectdata = EffectData()
+                effectdata:SetStart(self:GetPos())
+                effectdata:SetOrigin(self:GetPos())
+                effectdata:SetScale(1)
+                util.Effect("cball_explode", effectdata)
+            else
+                self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_recharge_delay"):GetFloat()
+            end
+        end
 
-			-- Over-damage DOES get passed onto the pilot unless bullet damage (as this wouldn't logically damage the pilot)
-			if IsValid(pilot) and pilot:Alive() then
-				self:RemoveUser()
+        self:SyncNetVars()
+        return
+    end
 
-				if not dmg:IsBulletDamage() then -- Don't apply over-damage from bullets, because that doesn't really make sense
-					pilot.AllowMechOverdamage = true
+    -- Shield is 0 so reduce mech's health
+    if damage > self.MechHealth then
+        local overdamage = damage - self.MechHealth
+        self.MechHealth = 0
 
-					local plyDmg = DamageInfo()
-					plyDmg:SetDamage(overdamage)
-					plyDmg:SetAttacker(dmg:GetAttacker())
-					plyDmg:SetInflictor(dmg:GetInflictor())
-					plyDmg:SetDamageType(dmg:GetDamageType())
+        -- Over-damage DOES get passed onto the pilot unless bullet damage
+        if IsValid(pilot) and pilot:Alive() then
+            self:RemoveUser()
 
-					pilot:TakeDamageInfo(plyDmg)
+            if not dmg:IsBulletDamage() then -- Don't apply over-damage from bullets, because that doesn't really make sense
+                pilot.AllowMechOverdamage = true
 
-					local ply = pilot
-					timer.Simple(0, function()
-						if IsValid(ply) then
-							ply.AllowMechOverdamage = nil
-						end
-					end)
-				end
-			end
-		else
-			self.MechHealth = self.MechHealth - damage
-		end
-	end
+                local plyDmg = DamageInfo()
+                plyDmg:SetDamage(overdamage)
+                plyDmg:SetAttacker(dmg:GetAttacker())
+                plyDmg:SetInflictor(dmg:GetInflictor())
+                plyDmg:SetDamageType(dmg:GetDamageType())
 
-	self:SyncNetVars()
+                pilot:TakeDamageInfo(plyDmg)
+
+                local ply = pilot
+                timer.Simple(0, function()
+                    if IsValid(ply) then
+                        ply.AllowMechOverdamage = nil
+                    end
+                end)
+            end
+        end
+    else
+        self.MechHealth = self.MechHealth - damage
+    end
+
+    self:SyncNetVars()
 end
 
 hook.Add("EntityTakeDamage", "TTT_ImprovedMech_DamageHandler", function(target, dmginfo)
-	if not IsValid(target) then return end
+    if not IsValid(target) then return end
 
-	if target:IsPlayer() and target:InVehicle() then
-		-- Allow over-damage to the pilot if the flag is set
-		if target.AllowMechOverdamage then
-			return
-		end
+    if target:IsPlayer() and target:InVehicle() then
+        -- Allow over-damage to the pilot if the flag is set
+        if target.AllowMechOverdamage then
+            return
+        end
 
-		local seat = target:GetVehicle()
-		local mech = IsValid(seat) and seat.ParentMech or target:GetNWEntity("CombineMechEnt")
+        local seat = target:GetVehicle()
+        local mech = IsValid(seat) and seat.ParentMech or target:GetNWEntity("CombineMechEnt")
 
-		-- Otherwise, don't
-		if IsValid(mech) then
-			dmginfo:SetDamage(0)
-			dmginfo:ScaleDamage(0)
-			return true
-		end
-	end
+        -- Otherwise, don't
+        if IsValid(mech) then
+            dmginfo:SetDamage(0)
+            dmginfo:ScaleDamage(0)
+            return true
+        end
+    end
 
-	-- Make sure damage to any other part of the mech is applied only to the parent
-	local mech = target.ParentMech
-	if IsValid(mech) then
-		local currentFrame = FrameNumber()
-		if mech.LastDamageFrame == currentFrame and mech.LastDamageAmount == dmginfo:GetDamage() then
-			dmginfo:SetDamage(0)
-			dmginfo:ScaleDamage(0)
-			return true
-		end
+    -- Make damage to mech parts actually damage the mech entity
+    local mech = target.ParentMech
+    if IsValid(mech) then
+        local currentFrame = FrameNumber()
 
-		mech.LastDamageFrame = currentFrame
-		mech.LastDamageAmount = dmginfo:GetDamage()
+        -- Don't carry over damage which damaged multiple mech parts at once (e.g. an explosion) from the shield to health
+        if mech.ShieldBrokeFrame == currentFrame then
+            dmginfo:SetDamage(0)
+            dmginfo:ScaleDamage(0)
+            return true
+        end
 
-		if target ~= mech then
-			mech:TakeDamageInfo(dmginfo)
-			dmginfo:SetDamage(0)
-			dmginfo:ScaleDamage(0)
-			return true
-		end
-	end
+        if mech.IsForwardingDamage then
+            mech.IsForwardingDamage = nil
+            return
+        end
+
+        local damage = dmginfo:GetDamage()
+
+        if mech.LastDamageFrame ~= currentFrame then
+            -- First damage to any mech part this frame
+            mech.LastDamageFrame = currentFrame
+            mech.MaxFrameDamage = damage
+
+			-- First damage was to a child entity
+            if target ~= mech then
+                mech.IsForwardingDamage = true
+                mech:TakeDamageInfo(dmginfo)
+                mech.IsForwardingDamage = nil
+
+                -- Don't damage the actual child entity
+                dmginfo:SetDamage(0)
+                dmginfo:ScaleDamage(0)
+                return true
+            else
+				-- Let the damage damage the mech entity if that's what was hit
+                return
+            end
+        else
+            -- Something damaged multiple mech bits at the same time (e.g. an explosion)
+			-- Don't pass every instance of damage to the mech entity because that'll multiply it massively
+            local extraDamage = damage - (mech.MaxFrameDamage or 0)
+
+            if extraDamage > 0 then
+                mech.MaxFrameDamage = damage
+
+                if target ~= mech then
+                    local extraDmg = DamageInfo()
+                    extraDmg:SetDamage(extraDamage)
+                    extraDmg:SetAttacker(dmginfo:GetAttacker())
+                    extraDmg:SetInflictor(dmginfo:GetInflictor())
+                    extraDmg:SetDamageType(dmginfo:GetDamageType())
+                    extraDmg:SetDamagePosition(dmginfo:GetDamagePosition())
+
+                    mech.IsForwardingDamage = true
+                    mech:TakeDamageInfo(extraDmg)
+                    mech.IsForwardingDamage = nil
+                else
+                    dmginfo:SetDamage(extraDamage)
+                    return
+                end
+            end
+
+            -- Don't do duplicate damage/damage to any child entities
+            dmginfo:SetDamage(0)
+            dmginfo:ScaleDamage(0)
+            return true
+        end
+    end
 end)
 
 -- Mech physics
@@ -959,7 +1018,6 @@ function ENT:Think()
 			end
 
 			if self.MechHealth < self.MechMaxHealth and self.MechHealth > 0 then
-				self.MechHealth = self.MechHealth + 0.2
 				local percent = self.MechHealth / self.MechMaxHealth
 
 				if self.DamageLevel == 4 and percent > 0.1 then
@@ -1018,6 +1076,10 @@ function ENT:Think()
 		-- When the mech dies
 		self.Energy = 0
 		self.JetSound:Stop()
+
+		SafeRemoveEntity(self.AntennaLight)
+		SafeRemoveEntity(self.EntryButtonLight)
+		SafeRemoveEntity(self.MechUserEnt)
 
 		self:SetIsFlying(false)
 
@@ -1169,6 +1231,7 @@ function ENT:SetUser(ply)
 		self.NPCTarget:SetNotSolid(true)
 		self.NPCTarget:Spawn()
 		self.NPCTarget:Activate()
+		self.NPCTarget.ParentMech = self
 
 		self.NPCTarget2 = ents.Create("npc_bullseye")
 		self.NPCTarget2:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * -20)
@@ -1178,6 +1241,7 @@ function ENT:SetUser(ply)
 		self.NPCTarget2:SetNotSolid(true)
 		self.NPCTarget2:Spawn()
 		self.NPCTarget2:Activate()
+		self.NPCTarget2.ParentMech = self
 	end
 end
 
@@ -1198,7 +1262,7 @@ end
 function ENT:RemoveUser()
 	if IsValid(self.User) then
 		self.AntennaLight:SetKeyValue("renderamt", "0")
-		self.EntryButtonLight:SetKeyValue("renderamt", "255")
+		self.EntryButtonLight:SetKeyValue("renderamt", self.MechHealth > 0 and "255" or "0")
 
 		net.Start("TTT_ImprovedMech_Crosshair")
 			net.WriteInt(0, 8)
