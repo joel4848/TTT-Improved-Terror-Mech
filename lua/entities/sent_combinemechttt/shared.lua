@@ -28,7 +28,6 @@ function ENT:SetupDataTables()
     self:NetworkVar("Int",   5, "AmmoReserve")
 	self:NetworkVar("Bool",  0, "IsReloading")
 	self:NetworkVar("Bool",  1, "IsFlying")
-	self:NetworkVar("Float", 3, "FlyHeight")
 	self:NetworkVar("Float", 0, "ReloadEndTime")
 	self:NetworkVar("Float", 1, "ReloadDuration")
 end

@@ -224,6 +224,8 @@ function ENT:Initialize()
 	self.Mech:SetPos(self:GetPos())
 	self.Mech:Spawn()
 
+	self:SetNWEntity("MechRagdoll", self.Mech)
+
 	-- Disabling gravity on the mechs legs
 	self.Mech:GetPhysicsObjectNum(3):EnableGravity(false)
 	self.Mech:GetPhysicsObjectNum(4):EnableGravity(false)
@@ -408,17 +410,6 @@ function ENT:SyncNetVars()
 	self:SetMechHealthPct(MathClamp(MathCeil((self.MechHealth / self.MechMaxHealth) * 100), 0, 100))
 	self:SetShieldPercentage(MathClamp(MathFloor((self.Energy / self.MaxEnergy) * 100), 0, 100))
 	self:SetWeaponType(self.WepType)
-
-	-- Units to metres
-	local currentMeters = self.FlyHeight * 0.01905
-	local networkedMeters = MathFloor(currentMeters)
-
-	self.LastNetworkedMeters = self.LastNetworkedMeters or 0
-
-	if networkedMeters ~= self.LastNetworkedMeters then
-		self:SetFlyHeight(networkedMeters)
-		self.LastNetworkedMeters = networkedMeters
-	end
 
 	-- Only send info for current weapon
 	local wepState = self.WeaponStates[self.WepType]

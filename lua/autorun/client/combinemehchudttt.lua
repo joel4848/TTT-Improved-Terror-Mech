@@ -1,8 +1,11 @@
-local MathAbs   = math.abs
-local MathClamp = math.Clamp
-local MathMax   = math.max
-local MathRand  = math.Rand
-local MathRound = math.Round
+local MathAbs      = math.abs
+local MathApproach = math.Approach
+local MathCeil	   = math.ceil
+local MathClamp    = math.Clamp
+local MathFloor	   = math.floor
+local MathMax      = math.max
+local MathRand     = math.Rand
+local MathRound    = math.Round
 
 local textures = {
 	hudBg 		= surface.GetTextureID("combinemechhud/hud"),
@@ -275,23 +278,78 @@ local function drawHud()
 
 	if controlState == 2 and IsValid(mechEnt) then
 		local shieldPercent = mechEnt:GetShieldPercentage() / 100
-		local flyHeight     = mechEnt:GetFlyHeight()
 
-		-- Altitude change indicators
-		local worldZ     = MathRound(mechEnt:GetPos().z)
-		local rowCount   = 10
-		local rowHeight  = scrH / rowCount
-		local boxW       = scrW * 0.02
-		local boxH       = scrH * 0.015
-		local offsetAnim = (worldZ % 100) / 100 * rowHeight
+		-- Altitude indicator bars
+		local mechPos = mechEnt:GetPos()
 
-		for i = 0, rowCount do
-			local yPos = (i * rowHeight) + offsetAnim
-			if yPos <= scrH then
-				-- Left
-				draw.RoundedBox(0, scrW * 0.02, yPos, boxW, boxH, colours.whiteAlpha)
-				-- Right
-				draw.RoundedBox(0, scrW * 0.96, yPos, boxW, boxH, colours.whiteAlpha)
+		local ragdollEnt = mechEnt:GetNWEntity("MechRagdoll")
+
+		local filterEntities = {
+			mechEnt,
+			ragdollEnt,
+			LocalPlayer(),
+			IsValid(mechEnt.KeepUpRightProp) and mechEnt.KeepUpRightProp or nil,
+			IsValid(mechEnt.MechUserEnt) and mechEnt.MechUserEnt or nil
+		}
+
+		-- Find height above ground
+		local maxMetres = GetConVar("ttt_improvedmech_altitude_max"):GetInt()
+		local maxUnits  = MathMax(maxMetres / 0.01905, 1)
+
+		local traceStart = mechPos
+
+		local groundTrace = util.TraceLine({
+			start  = traceStart,
+			endpos = traceStart - Vector(0, 0, maxUnits + 10000),
+			filter = filterEntities
+		})
+
+		-- Convert to metres
+		local targetMetres = 0
+		if groundTrace.Hit then
+			targetMetres = (traceStart:Distance(groundTrace.HitPos) - 130) * 0.01905
+		else
+			targetMetres = maxMetres
+		end
+
+		-- Smooth out large changes
+		mechEnt.SmoothedMetres = MathApproach(
+			mechEnt.SmoothedMetres or targetMetres,
+			targetMetres,
+			FrameTime() * 12
+		)
+
+		local currentMetres = mechEnt.SmoothedMetres
+
+		local pixelsPerMetre = scrH * 0.08
+		local altBarW        = scrW * 0.02
+		local altBarH        = scrH * 0.012
+		local centreY        = scrH * 0.5
+
+		local minMetre = MathMax(0, MathFloor(currentMetres - (scrH / (2 * pixelsPerMetre)) - 1))
+		local maxMetre = MathCeil(currentMetres + (scrH / (2 * pixelsPerMetre)) + 1)
+
+		-- Draw the bars
+		for metre = minMetre, maxMetre do
+			local yPos = centreY - ((metre - currentMetres) * pixelsPerMetre) - (altBarH * 0.5)
+
+			if yPos >= 0 and yPos <= (scrH - altBarH) then
+				local barColour = (metre >= maxMetres) and Color(255, 50, 50, 220) or colours.whiteAlpha
+
+				local leftBarX 	= scrW * 0.02
+				local rightBarX = scrW * 0.96
+
+				draw.RoundedBox(0, leftBarX,  yPos, altBarW, altBarH, barColour)
+				draw.RoundedBox(0, rightBarX, yPos, altBarW, altBarH, barColour)
+
+				-- Draw "Max" labels
+				if metre == maxMetres then
+					local leftTextX  = leftBarX + altBarW + 10
+					local rightTextX = rightBarX - 10
+
+					draw.SimpleTextOutlined("MAX", "CombineHudText", leftTextX,  yPos + altBarH / 2, barColour, TEXT_ALIGN_LEFT,  TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+					draw.SimpleTextOutlined("MAX", "CombineHudText", rightTextX, yPos + altBarH / 2, barColour, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+				end
 			end
 		end
 
@@ -317,12 +375,11 @@ local function drawHud()
 		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 
 		-- Altitude text
-		local altitudeX       = scrW * 0.4
-		local altitudeY       = scrH * 0.5
+		local altitudeX = scrW * 0.4
+		local altitudeY = scrH * 0.5
 
-		local displayHeight = math.Round(flyHeight)
 		draw.SimpleTextOutlined("ALTITUDE: ", "CombineHudText", altitudeX, altitudeY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
-		draw.SimpleTextOutlined(string.format("%03d", displayHeight) .. "m", "CombineHudText", altitudeX, altitudeY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		draw.SimpleTextOutlined(string.format("%03d", currentMetres) .. "m", "CombineHudText", altitudeX, altitudeY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
 		-- Ammo HUD
 		local clip        = mechEnt:GetAmmoClip()
