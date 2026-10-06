@@ -98,7 +98,7 @@ function ENT:Draw()
 	end
 end
 
-local crosshairDefault = GetConVar("ttt_disable_crosshair"):GetBool() or 0
+local crosshairDefault = 0
 
 function ENT:OnRemove()
 	RunConsoleCommand("ttt_disable_crosshair", crosshairDefault)
