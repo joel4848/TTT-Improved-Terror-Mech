@@ -91,8 +91,8 @@ ENT.Spawner               = nil
 ENT.UserSeat              = nil
 
 -- Health
-ENT.MechHealth    		 = GetConVar("ttt_improvedmech_max_health"):GetInt()
-ENT.MechMaxHealth 		 = GetConVar("ttt_improvedmech_max_health"):GetInt()
+ENT.MechHealth    		 = GetConVar("ttt_improvedmech_health_max"):GetInt()
+ENT.MechMaxHealth 		 = GetConVar("ttt_improvedmech_health_max"):GetInt()
 ENT.DamageLevel   		 = 0
 ENT.SmokeEffect   		 = nil
 
@@ -154,8 +154,8 @@ ENT.JetPlay         = false
 ENT.ChargeVortSound = nil
 
 -- Shield
-ENT.Energy             = 100
-ENT.MaxEnergy          = 100
+ENT.Energy             = 400
+ENT.MaxEnergy          = 400
 ENT.NextShieldRecharge = 0
 ENT.UpdateShield       = CurTime()
 ENT.ShieldEffDel       = CurTime()
@@ -163,10 +163,10 @@ ENT.ShieldDown         = false
 ENT.ShieldSprite       = nil
 
 -- TESTING
-local devMode = CreateConVar("ttt_improvedmech_dev_mode", 0, FCVAR_NONE, "Enables dev mode", 0, 1):GetBool()
+CreateConVar("ttt_improvedmech_dev_mode", 0, FCVAR_NONE, "Enables dev mode", 0, 1)
 
 hook.Add("TTTBeginRound", "ImprovedMechTestGiveNade", function()
-	if devMode then
+	if GetConVar("ttt_improvedmech_dev_mode"):GetBool() then
 		for _, ply in player.Iterator() do
 			ply:Give("weapon_ttt_mechnade")
 			ply:SelectWeapon("weapon_ttt_mechnade")
@@ -207,12 +207,12 @@ function ENT:Initialize()
 	self.User = nil
 
 	-- Set health/shield
-	local maxHP = GetConVar("ttt_improvedmech_max_health"):GetInt()
-	local maxShield = GetConVar("ttt_improvedmech_max_shield"):GetInt()
+	local maxHP = GetConVar("ttt_improvedmech_health_max"):GetInt()
+	local maxShield = GetConVar("ttt_improvedmech_shield_max"):GetInt()
 
-	self.MechMaxHealth 		= maxHP > 0 and maxHP or 100
+	self.MechMaxHealth 		= maxHP > 0 and maxHP or 400
 	self.MechHealth    		= self.MechMaxHealth
-	self.MaxEnergy     		= maxShield >= 0 and maxShield or 100
+	self.MaxEnergy     		= maxShield >= 0 and maxShield or 400
 	self.Energy        		= self.MaxEnergy
 	self.NextShieldRecharge = 0
 
@@ -410,8 +410,12 @@ end
 -------------------------------------------
 
 function ENT:SyncNetVars()
-	self:SetMechHealthPct(MathClamp(MathCeil((self.MechHealth / self.MechMaxHealth) * 100), 0, 100))
+	self:SetMechHealthAmount(self.MechHealth)
+	self:SetMechHealthPercentage(MathClamp(MathCeil((self.MechHealth / self.MechMaxHealth) * 100), 0, 100))
+
+	self:SetShieldAmount(self.Energy)
 	self:SetShieldPercentage(MathClamp(MathFloor((self.Energy / self.MaxEnergy) * 100), 0, 100))
+
 	self:SetWeaponType(self.WepType)
 
 	-- Only send info for current weapon

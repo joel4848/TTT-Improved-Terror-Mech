@@ -234,7 +234,8 @@ local function drawHud()
 	if not IsValid(mechEnt) then return end
 
 	local currentWeapon = mechEnt:GetWeaponType()
-	local healthPercent = mechEnt:GetMechHealthPct() / 100
+	local healthPercent = mechEnt:GetMechHealthPercentage() / 100
+	local healthAmount 	= mechEnt:GetMechHealthAmount()
 
 	local scrW, scrH 	= ScrW(), ScrH()
 
@@ -277,6 +278,7 @@ local function drawHud()
 	----------------------------------------------------------------------------
 
 	if controlState == 2 and IsValid(mechEnt) then
+		local shieldAmount	= mechEnt:GetShieldAmount()
 		local shieldPercent = mechEnt:GetShieldPercentage() / 100
 
 		-- Altitude indicator bars
@@ -411,17 +413,19 @@ local function drawHud()
 		local barH         = scrH * 0.022
 		local shieldX      = scrW * 0.018
 		local healthX      = scrW * 0.702
-		local shieldLabelX = scrW * 0.32
-		local healthLabelX = scrW * 0.6
-		local barY         = scrH * 0.9415
+		local shieldLabelX = scrW * 0.358
+		local healthLabelX = scrW * 0.64
+		local barY         = scrH * 0.942
+		local labelY	   = scrH * 0.9415 - fontSize / 3.5
 
 		-- Shield bar & label
-		draw.SimpleText("SHIELD  [" .. MathRound(shieldPercent * 100) .. "%]", "CombineHudText", shieldLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-		drawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, colours.combineBlue, colours.barBorder, colours.darkBg)
+		local shieldColour = shieldPercent > 0.3 and colours.white or colours.heatCritical
+		draw.SimpleText("SHIELD  [" .. shieldAmount .. "]", "CombineHudText", shieldLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		drawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, shieldColour, colours.barBorder, colours.darkBg)
 
 		-- Health bar & label
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
-		draw.SimpleText("HEALTH  [" .. MathRound(healthPercent * 100) .. "%]", "CombineHudText", healthLabelX, barY - fontSize / 3.5, colours.white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+		draw.SimpleText("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		drawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
 	end
 
