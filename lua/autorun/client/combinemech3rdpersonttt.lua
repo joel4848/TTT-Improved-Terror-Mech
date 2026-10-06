@@ -50,7 +50,7 @@ hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov
 				Trace.filter = { ply, ent, saw }
 				local tr = util.TraceLine(Trace)
 
-				if tr.Hit then
+				if tr.Hit and tr.Entity:GetModel() ~= "models/cm/shield.mdl" then
 					pos = tr.HitPos
 				end
 

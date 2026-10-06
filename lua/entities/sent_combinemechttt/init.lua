@@ -307,12 +307,22 @@ function ENT:Initialize()
 	self.ShieldSphere:Spawn()
 	self.ShieldSphere:SetParent(self.KeepUpRightProp)
 
+	-- self.ShieldSphere:SetMaterial("models/effects/portalfunnel_sheet")
+	-- self.ShieldSphere:SetMaterial("models/props_combine/stasisshield_sheet")
 	self.ShieldSphere:SetMaterial("models/props_combine/portalball001_sheet")
 	self.ShieldSphere:SetRenderMode(RENDERMODE_TRANSCOLOR)
-	self.ShieldSphere:SetColor(Color(120, 200, 255, 50))
+	self.ShieldSphere:SetColor(Color(120, 200, 255, 80))
 
 	self.ShieldSphere:SetModelScale(0.6, 0)
-	self.ShieldSphere:SetNotSolid(true)
+
+	self.ShieldSphere:PhysicsInit(SOLID_VPHYSICS)
+	self.ShieldSphere:SetSolid(SOLID_VPHYSICS)
+	self.ShieldSphere:SetMoveType(MOVETYPE_VPHYSICS)
+
+	self.ShieldSphere:SetCollisionGroup(COLLISION_GROUP_DEBRIS_TRIGGER)
+	self.ShieldSphere:SetCustomCollisionCheck(true)
+	self.ShieldSphere:CollisionRulesChanged()
+
 	self.ShieldSphere:DrawShadow(false)
 
 	self.JetSound = CreateSound(self, "weapons/rpg/rocket1.wav")
@@ -818,7 +828,7 @@ function ENT:PhysicsUpdate(physics)
 					local tr = util.TraceLine({
 						start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 						endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 400),
-						filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.TempMissile}
+						filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.TempMissile, self.ShieldSphere}
 					})
 					self.TempMissile.DestPos = tr.HitPos
 
@@ -890,7 +900,7 @@ function ENT:PhysicsUpdate(physics)
 							local tr = util.TraceLine({
 								start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 								endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 4000),
-								filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+								filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 							})
 							self.StormTargetPos = tr.HitPos
 
@@ -1051,20 +1061,27 @@ function ENT:Think()
 			end
 		end
 
-		-- Set shield sphere color/transparency
+		-- Set shield sphere color/transparency/solidness
 		if IsValid(self.ShieldSphere) then
 			if self.Energy > 0 then
 				self.ShieldSphere:SetNoDraw(false)
+				if self.ShieldSphere:GetSolid() == SOLID_NONE then
+					self.ShieldSphere:SetSolid(SOLID_VPHYSICS)
+					self.ShieldSphere:CollisionRulesChanged()
+				end
 
 				local energyPercentage = MathClamp(self.Energy / self.MaxEnergy, 0, 1)
-
 				local rColour = 255 - 135 * energyPercentage
 				local gColour = 200 * energyPercentage
 				local bColour = 255 * energyPercentage
 
-				self.ShieldSphere:SetColor(Color(rColour, gColour, bColour, 50))
+				self.ShieldSphere:SetColor(Color(rColour, gColour, bColour, 80))
 			else
 				self.ShieldSphere:SetNoDraw(true)
+				if self.ShieldSphere:GetSolid() ~= SOLID_NONE then
+					self.ShieldSphere:SetSolid(SOLID_NONE)
+					self.ShieldSphere:CollisionRulesChanged()
+				end
 			end
 		end
 
@@ -1287,7 +1304,7 @@ function ENT:Hover()
 	local tr = util.TraceLine({
 		start  = self.Mech:GetPos(),
 		endpos = self.Mech:GetPos() + Vector(0, 0, self.HoverHeight * -1),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
 	if tr.Hit then
@@ -1330,7 +1347,7 @@ function ENT:UpdateFootStatus()
 	local tr1 = util.TraceLine({
 		start  = bonepos1,
 		endpos = bonepos1 + Vector(0, 0, -30),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
 	if tr1.Hit then
@@ -1340,7 +1357,7 @@ function ENT:UpdateFootStatus()
 	local tr2 = util.TraceLine({
 		start  = bonepos2,
 		endpos = bonepos2 + Vector(0, 0, -30),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
 	if tr2.Hit and self.FootStatus == 1 then
@@ -1557,13 +1574,14 @@ function ENT:Shield()
 						v:SetHealth(0)
 
 						local bul = {
-							Num    = 1,
-							Src    = v:GetPos(),
-							Dir    = Vector(0, 0, 0),
-							Spread = Vector(0, 0, 0),
-							Tracer = 0,
-							Force  = 1,
-							Damage = 100
+							Num    		 = 1,
+							Src    		 = v:GetPos(),
+							Dir    		 = Vector(0, 0, 0),
+							Spread 		 = Vector(0, 0, 0),
+							Tracer 		 = 0,
+							Force  		 = 1,
+							Damage 		 = 100,
+							IgnoreEntity = self.ShieldSphere
 						}
 						self:FireBullets(bul)
 					elseif v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette" or v:GetClass() == "grenade_spit" then
@@ -1642,7 +1660,7 @@ function ENT:ShootBullet()
 		local cameraTrace = {
 			start = self:GetPos() + (angles:Forward() * -100),
 			endpos = cameraPos,
-			filter = {ply, self, self.KeepUpRightProp}
+			filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
 		}
 
 		local cameraResult = util.TraceLine(cameraTrace)
@@ -1654,7 +1672,7 @@ function ENT:ShootBullet()
 		local aimTrace = {
 			start = cameraPos,
 			endpos = cameraPos + angles:Forward() * 100000,
-			filter = {ply, self, self.KeepUpRightProp}
+			filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
 		}
 
 		local aimResult = util.TraceLine(aimTrace)
@@ -1673,15 +1691,16 @@ function ENT:ShootBullet()
 	util.Effect("MuzzleEffect", effectdata)
 
 	local bullet = {
-		Num        = 1,
-		Src        = muzzlePos,
-		Dir        = aimDirection,
-		Spread     = Vector(0.03, 0.03, 0),
-		Tracer     = 1,
-		TracerName = "Tracer",
-		Force      = 0,
-		Damage     = 5,
-		Attacker   = ply
+		Num        	 = 1,
+		Src        	 = muzzlePos,
+		Dir        	 = aimDirection,
+		Spread     	 = Vector(0.03, 0.03, 0),
+		Tracer     	 = 1,
+		TracerName 	 = "Tracer",
+		Force      	 = 0,
+		Damage     	 = 5,
+		Attacker   	 = ply,
+		IgnoreEntity = self.ShieldSphere
 	}
 
 	self:FireBullets(bullet)
@@ -1693,7 +1712,7 @@ function ENT:ShootScreamer()
 	local tr = util.TraceLine({
 		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 999999),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
 	local bomb = ents.Create("sent_mechscreamerbombTTT")
@@ -1720,7 +1739,7 @@ function ENT:ShootGravProbe()
 	local tr = util.TraceLine({
 		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 400),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
 	local grav = ents.Create("sent_mechgravprobeTTT")
@@ -1787,7 +1806,7 @@ function ENT:ShootRocket()
 	local tr = util.TraceLine({
 		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
 		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 4000),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt}
+		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
 	local missile = ents.Create("sent_mechmissileTTT")
@@ -1849,3 +1868,37 @@ function ENT:FixPropProtection(ply)
 		gamemode.Call("UPSAssignOwnership", ply, self.KeepUpRightProp)
 	end
 end
+
+-- Custom collision filtering for the shield sphere
+hook.Add("ShouldCollide", "TTT_ImprovedMech_ShieldCollide", function(ent1, ent2)
+    local shield = nil
+    local other  = nil
+
+    if ent1:GetClass() == "sent_combinemechttt_shield" or ent1.IsMechShield then
+        shield, other = ent1, ent2
+    elseif ent2:GetClass() == "sent_combinemechttt_shield" or ent2.IsMechShield then
+        shield, other = ent2, ent1
+    end
+
+    if not IsValid(shield) then return end
+
+    -- Don't collide with players
+    if other:IsPlayer() then return false end
+
+    -- Don't collide with the world
+    if other:IsWorld() then return false end
+
+    -- Don't collide with the mech
+    if IsValid(shield.ParentMech) and shield.ParentMech:IsMechPart(other) then
+        return false
+    end
+
+    -- Don't collide with held props
+    local phys = other:GetPhysicsObject()
+    if IsValid(phys) and phys:HasGameFlag(FVPHYSICS_PLAYER_HELD) then
+        return false
+    end
+
+    -- Collide with anything else
+    return true
+end)
