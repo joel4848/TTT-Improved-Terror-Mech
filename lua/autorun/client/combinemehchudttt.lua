@@ -282,16 +282,18 @@ local function drawHud()
 		local shieldPercent = mechEnt:GetShieldPercentage() / 100
 
 		-- Altitude indicator bars
-		local mechPos = mechEnt:GetPos()
-
-		local ragdollEnt = mechEnt:GetNWEntity("MechRagdoll")
+		local mechPos 		  = mechEnt:GetPos()
+		local ragdollEnt 	  = mechEnt:GetNWEntity("MechRagdoll")
+		local shieldSphereEnt = mechEnt:GetNWEntity("MechShieldSphere")
 
 		local filterEntities = {
 			mechEnt,
 			ragdollEnt,
 			LocalPlayer(),
-			IsValid(mechEnt.KeepUpRightProp) and mechEnt.KeepUpRightProp or nil,
-			IsValid(mechEnt.MechUserEnt) and mechEnt.MechUserEnt or nil
+			-- The two things below stop the shield sphere filtering from working if they're left in
+			-- IsValid(mechEnt.KeepUpRightProp) and mechEnt.KeepUpRightProp or nil,
+			-- IsValid(mechEnt.MechUserEnt) and mechEnt.MechUserEnt or nil,
+			IsValid(shieldSphereEnt) and shieldSphereEnt or nil
 		}
 
 		-- Find height above ground
