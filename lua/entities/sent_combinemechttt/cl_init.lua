@@ -98,19 +98,19 @@ function ENT:Draw()
 	end
 end
 
-local crosshairDefault = 0
+-- Hide the crosshair when the player is using the mech's internal view
+hook.Add("HUDShouldDraw", "TTT_ImprovedMech_HideCrosshair", function(hudName)
+    if hudName == "CHudCrosshair" then
+        local ply = LocalPlayer()
+        if IsValid(ply) and ply:InVehicle() then
+            local controlMode = ply:GetNWInt("ControlsCombineMech", 0)
+            if controlMode <= 0 and ply.MechViewMode then
+                controlMode = ply.MechViewMode
+            end
 
-function ENT:OnRemove()
-	RunConsoleCommand("ttt_disable_crosshair", crosshairDefault)
-end
-
-net.Receive("TTT_ImprovedMech_Crosshair", function()
-	local viewMode = net.ReadInt(8)
-
-	if viewMode == 2 then
-		crosshairDefault = GetConVar("ttt_disable_crosshair"):GetBool() or 0
-		RunConsoleCommand("ttt_disable_crosshair", 1)
-	else
-		RunConsoleCommand("ttt_disable_crosshair", crosshairDefault)
-	end
+            if controlMode == 2 then
+                return false
+            end
+        end
+    end
 end)
