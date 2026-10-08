@@ -9,12 +9,37 @@ local RenderDrawBeam 	= render.DrawBeam
 local RenderSetMaterial = render.SetMaterial
 
 function ENT:Initialize()
+	self.PilotCrosshairConVars = {}
 end
+
+local disableCrosshairConVar = GetConVar("ttt_disable_crosshair")
 
 function ENT:Think()
 	local useEff = self:GetIsFlying()
-
 	if useEff then self:MakeSmoke() end
+
+	local ply = LocalPlayer()
+	if not self.PilotCrosshairConVars[ply] then
+		self.PilotCrosshairConVars[ply] = disableCrosshairConVar:GetInt()
+	end
+
+	if IsValid(ply) and ply:InVehicle() then
+		local controlMode = ply:GetNWInt("ControlsCombineMech", 0)
+
+		if controlMode <= 0 and ply.MechViewMode then
+			controlMode = ply.MechViewMode
+		end
+
+		if controlMode == 2 then
+			if disableCrosshairConVar:GetInt() ~= 1 then
+				RunConsoleCommand("ttt_disable_crosshair", 1)
+			end
+		elseif disableCrosshairConVar:GetInt() ~= self.PilotCrosshairConVars[ply] then
+			RunConsoleCommand("ttt_disable_crosshair", self.PilotCrosshairConVars[ply])
+		end
+	elseif IsValid(ply) and self.PilotCrosshairConVars[ply] and self.PilotCrosshairConVars[ply] ~= disableCrosshairConVar:GetInt() then
+		RunConsoleCommand("ttt_disable_crosshair", self.PilotCrosshairConVars[ply])
+	end
 end
 
 function ENT:MakeSmoke()
@@ -97,20 +122,3 @@ function ENT:Draw()
 		end
 	end
 end
-
--- Hide the crosshair when the player is using the mech's internal view
-hook.Add("HUDShouldDraw", "TTT_ImprovedMech_HideCrosshair", function(hudName)
-    if hudName == "CHudCrosshair" then
-        local ply = LocalPlayer()
-        if IsValid(ply) and ply:InVehicle() then
-            local controlMode = ply:GetNWInt("ControlsCombineMech", 0)
-            if controlMode <= 0 and ply.MechViewMode then
-                controlMode = ply.MechViewMode
-            end
-
-            if controlMode == 2 then
-                return false
-            end
-        end
-    end
-end)

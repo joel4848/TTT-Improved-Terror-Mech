@@ -83,3 +83,13 @@ net.Receive("TTT_ImprovedMech_ForceView", function()
 		ply.MechSawEntity = saw
 	end
 end)
+
+local crosshairConVarDefault = nil
+
+hook.Add("TTTPrepareRound", "ImprovedMech_Crosshair_TTTPrepareRound", function()
+	if crosshairConVarDefault == nil then
+		crosshairConVarDefault = GetConVar("ttt_disable_crosshair"):GetInt()
+	elseif crosshairConVarDefault ~= GetConVar("ttt_disable_crosshair"):GetInt() then
+		RunConsoleCommand("ttt_disable_crosshair", crosshairConVarDefault)
+	end
+end)
