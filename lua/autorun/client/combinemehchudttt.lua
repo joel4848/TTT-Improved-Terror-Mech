@@ -111,11 +111,19 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 		local distance 	= eyePos:Distance(centerPos)
 		if distance > maxDistance then return end
 
-		-- Only show boxes if player/NPC is visible
+		local mechEnt = ply:GetNWEntity("CombineMechEnt")
+		local shieldSphereEnt = IsValid(mechEnt) and mechEnt:GetNWEntity("MechShieldSphere") or nil
+
+		-- Only show boxes if the player/NPC is visible
+		local filter = {ply, ply:GetVehicle(), targetEnt}
+		if IsValid(shieldSphereEnt) then
+			filter[#filter + 1] = shieldSphereEnt
+		end
+
 		local tr = util.TraceLine({
 			start  = eyePos,
 			endpos = centerPos,
-			filter = { ply, ply:GetVehicle(), targetEnt }
+			filter = filter
 		})
 
 		if tr.Hit then return end
@@ -429,9 +437,9 @@ local function drawHud()
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
 		draw.SimpleText("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		drawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
-	end
 
-	drawTargetingBoxes2D(ply, EyePos(), 3000)
+		drawTargetingBoxes2D(ply, EyePos(), 3000)
+	end
 
 	-- Weapon box
 	if currentWeapon ~= previousWeapon then
