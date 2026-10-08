@@ -1241,6 +1241,10 @@ function ENT:SetUser(ply)
 	local mechAngles = self:GetAngles()
 	self.User:SetEyeAngles(Angle(0, mechAngles.yaw, 0))
 
+	-- timer.Simple(0, function()
+	-- 	self.User:SetEyeAngles(Angle(0, mechAngles.yaw, 0))
+	-- end)
+
 	self.ChangeView = false
 	self.User:SetNWInt("ControlsCombineMech", 2)
 	self.User:SetNWEntity("CombineMechEnt", self)

@@ -2,7 +2,8 @@
 
 hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov)
 	if not ply:Alive() then return end
-	if (ply:GetActiveWeapon() == NULL or ply:GetActiveWeapon() == "Camera") then return end
+	local activeWep = ply:GetActiveWeapon()
+	if IsValid(activeWep) and activeWep:GetClass() == "gmod_camera" then return end
 	if GetViewEntity() ~= ply then return end
 
 	-- Clean up if no longer in the mech
