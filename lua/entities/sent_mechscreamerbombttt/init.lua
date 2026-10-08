@@ -69,7 +69,7 @@ function ENT:Initialize()
 	redSprite:Spawn()
 	redSprite:SetParent( self )
 
-	self.ScreamSound = CreateSound(self,"combine mech/ScreamIdle.wav")
+	self.ScreamSound = CreateSound(self,"combine_mech/ScreamIdle.wav")
 	self.ScreamSound:Play()
 	self.SoundDel = CurTime() + 2
 
@@ -114,7 +114,7 @@ function ENT:StartCountdown()
 	if IsValid(self.TeslaEff) then
 		self.TeslaEff:SetKeyValue( "m_flRadius" ,"300" )
 	end
-	self:EmitSound("combine mech/ScreamerCountDown.wav")
+	self:EmitSound("combine_mech/ScreamerCountDown.wav")
 end
 
 -------------------------------------------PHYS COLLIDE
