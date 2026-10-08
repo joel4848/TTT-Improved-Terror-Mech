@@ -300,30 +300,31 @@ function ENT:Initialize()
 	self.AntennaLight:SetParent(self.KeepUpRightProp)
 
 	-- Shield Sphere
-	self.ShieldSphere = ents.Create("prop_dynamic")
+	self.ShieldSphere = ents.Create("sent_combinemechshieldttt")
 	self.ShieldSphere:SetModel("models/cm/shield.mdl")
 	self.ShieldSphere:SetPos(self:GetPos() + Vector(0, 0, -40))
 	self.ShieldSphere:SetAngles(Angle(0, 0, 0))
+	self.ShieldSphere:SetModelScale(0.6, 0)
 	self.ShieldSphere:Spawn()
-	self.ShieldSphere:SetParent(self.KeepUpRightProp)
 
-	-- self.ShieldSphere:SetMaterial("models/effects/portalfunnel_sheet")
-	-- self.ShieldSphere:SetMaterial("models/props_combine/stasisshield_sheet")
+	constraint.Weld(self.ShieldSphere, self.KeepUpRightProp, 0, 0, 0, true)
+	constraint.NoCollide(self.ShieldSphere, self.Mech, 0, 0)
+	constraint.NoCollide(self.ShieldSphere, self.KeepUpRightProp, 0, 0)
+
+	local shieldPhys = self.ShieldSphere:GetPhysicsObject()
+	if IsValid(shieldPhys) then
+		shieldPhys:EnableGravity(false)
+		shieldPhys:Wake()
+	end
+
 	self.ShieldSphere:SetMaterial("models/props_combine/portalball001_sheet")
 	self.ShieldSphere:SetRenderMode(RENDERMODE_TRANSCOLOR)
 	self.ShieldSphere:SetColor(Color(120, 200, 255, 80))
-
-	self.ShieldSphere:SetModelScale(0.6, 0)
-
-	self.ShieldSphere:PhysicsInit(SOLID_VPHYSICS)
-	self.ShieldSphere:SetSolid(SOLID_VPHYSICS)
-	self.ShieldSphere:SetMoveType(MOVETYPE_VPHYSICS)
-
-	self.ShieldSphere:SetCollisionGroup(COLLISION_GROUP_DEBRIS_TRIGGER)
-	self.ShieldSphere:SetCustomCollisionCheck(true)
-	self.ShieldSphere:CollisionRulesChanged()
-
 	self.ShieldSphere:DrawShadow(false)
+
+	self:SetNWEntity("MechShieldSphere", self.ShieldSphere)
+
+	self:SetNWEntity("MechShieldSphere", self.ShieldSphere)
 
 	self.JetSound = CreateSound(self, "weapons/rpg/rocket1.wav")
 	self.ChargeVortSound = CreateSound(self, "npc/vort/attack_charge.wav")
@@ -531,7 +532,7 @@ function ENT:OnTakeDamage(dmg)
                 self.ShieldBrokeFrame = currentFrame
                 self.NextShieldRecharge = curTime + GetConVar("ttt_improvedmech_shield_break_delay"):GetFloat()
 
-                self:EmitSound("combine mech/ShieldDown.wav", 85, MathRandom(80, 120))
+                self:EmitSound("combine_mech/ShieldDown.wav", 85, MathRandom(80, 120))
 
                 local effectdata = EffectData()
                 effectdata:SetStart(self:GetPos())
@@ -605,6 +606,16 @@ hook.Add("EntityTakeDamage", "TTT_ImprovedMech_DamageHandler", function(target, 
     -- Make damage to mech parts actually damage the mech entity
     local mech = target.ParentMech
     if IsValid(mech) then
+		if dmginfo:IsDamageType(DMG_CRUSH) and dmginfo:GetAttacker() == game.GetWorld() then
+			dmginfo:SetDamage(0)
+			return true
+		end
+
+		-- Flash the shield sphere if it gets hit (except explosions in case that does it too much?)
+		if target.IsMechShield and mech.Energy > 0 and not dmginfo:IsExplosionDamage() and dmginfo:GetDamage() > 0 then
+			target:ShieldHit(dmginfo:GetDamagePosition(), 50 + dmginfo:GetDamage() * 2)
+		end
+
         local currentFrame = FrameNumber()
 
         -- Don't carry over damage which damaged multiple mech parts at once (e.g. an explosion) from the shield to health
@@ -727,10 +738,6 @@ function ENT:PhysicsUpdate(physics)
 		end
 
 		self:UpdateFootStatus()
-
-		if self.UpdateShield < curTime then
-			self:Shield()
-		end
 
 		if (self.FootStatus > 0 or self.FlyHeight > 0) and IsValid(self.KeepUpRightCon) then
 			self:AutoMoveFeet()
@@ -866,7 +873,7 @@ function ENT:PhysicsUpdate(physics)
 						elseif self.WepType == 2 and not self.ScreamerCharging then
 							self.ScreamerCharging = true
 							self.ScreamerFireTime = curTime + 2
-							self:EmitSound("combine mech/ScreamerChargeUp.wav", 100, MathRandom(80, 120))
+							self:EmitSound("combine_mech/ScreamerChargeUp.wav", 100, MathRandom(80, 120))
 
 							wepState.clip = wepState.clip - 1
 							wepState.nextFire = curTime + self:GetWeaponStat(2, "firedelay")
@@ -1067,6 +1074,7 @@ function ENT:Think()
 				self.ShieldSphere:SetNoDraw(false)
 				if self.ShieldSphere:GetSolid() == SOLID_NONE then
 					self.ShieldSphere:SetSolid(SOLID_VPHYSICS)
+					self.ShieldSphere:SetCustomCollisionCheck(true)
 					self.ShieldSphere:CollisionRulesChanged()
 				end
 
@@ -1091,7 +1099,7 @@ function ENT:Think()
 		-- Play sound when broken shield starts restoring
 		if self.ShieldDown and self.Energy > 0 then
 			self.ShieldDown = false
-			self:EmitSound("combine mech/ShieldUp.wav", 85, MathRandom(80, 120))
+			self:EmitSound("combine_mech/ShieldUp.wav", 85, MathRandom(80, 120))
 		end
 	else
 		-- When the mech dies
@@ -1419,7 +1427,7 @@ function ENT:AutoMoveFeet()
 	if self.MoveLeftDel > curTime and (self.FootStatus == 2 or self.FootStatus == 3) then
 		if self.DontMoveLeftDel <= curTime then
 			local vel = MathMin(self.LeftMoveDist, 150)
-			self:EmitSound("combine mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
+			self:EmitSound("combine_mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
 		end
 
 		self.DontMoveLeftDel = curTime + 1
@@ -1436,7 +1444,7 @@ function ENT:AutoMoveFeet()
 	if self.MoveRightDel > curTime and (self.FootStatus == 1 or self.FootStatus == 3) then
 		if self.DontMoveRightDel <= curTime then
 			local vel = MathMin(self.RightMoveDist, 150)
-			self:EmitSound("combine mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
+			self:EmitSound("combine_mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
 		end
 
 		self.DontMoveRightDel = curTime + 1
@@ -1546,98 +1554,6 @@ function ENT:IsMechPart(v)
 	end
 
 	return false
-end
-
--- All shield thingys happens here
-function ENT:Shield()
-	-- Energy must be above 0
-	if self.Energy <= 0 or not IsValid(self.Mech) then return end
-
-	-- Getting all ents
-	for _, v in pairs(ents.FindInSphere(self:GetPos(), 150)) do
-		-- These things are hidden in the player
-		-- We don't want the shield to react to them
-		if IsValid(v) and not v:IsPlayer() and not v:IsWeapon() and not string.find(v:GetClass(), "predicted_viewmodel") and not string.find(v:GetClass(), "physgun_beam") then
-			-- The shield should ignore its own parts
-			if not self:IsMechPart(v) then
-				local vel = v:GetVelocity():Length()
-				local dir1 = v:GetVelocity():GetNormalized()
-				local dir = (v:GetPos() - self:GetPos()):GetNormalized()
-				local dot = dir:Dot(dir1)
-
-				if dot < 0 and vel > 500 then
-					-- Some ents that aren't phys objects needs to be handled separately
-					if v:GetClass() == "rpg_missile" then
-						self.Energy = self.Energy - 20
-						v:SetLocalVelocity(dir * vel * 1000 + Vector(0, 0, 10000))
-						v:SetAngles(dir:Angle())
-						v:SetHealth(0)
-
-						local bul = {
-							Num    		 = 1,
-							Src    		 = v:GetPos(),
-							Dir    		 = Vector(0, 0, 0),
-							Spread 		 = Vector(0, 0, 0),
-							Tracer 		 = 0,
-							Force  		 = 1,
-							Damage 		 = 100,
-							IgnoreEntity = self.ShieldSphere
-						}
-						self:FireBullets(bul)
-					elseif v:GetClass() == "crossbow_bolt" or v:GetClass() == "hunter_flechette" or v:GetClass() == "grenade_spit" then
-						self.Energy = self.Energy - (v:GetClass() == "crossbow_bolt" and 10 or 3)
-						v:SetLocalVelocity(dir * (v:GetClass() == "grenade_spit" and vel or (vel * 1000)))
-					elseif v:GetClass() == "grenade_ar2" then
-						self.Energy = self.Energy - 5
-
-						v:SetLocalVelocity(dir * vel)
-					elseif string.find(v:GetClass(), "missile") then
-						v:SetAngles(dir:Angle())
-						v.MissileTime = 0
-
-						local phys = v:GetPhysicsObject()
-						if IsValid(phys) then phys:SetVelocity(dir * vel * 0.5) end
-
-						self.Energy = self.Energy - 10
-					else
-						local phys = v:GetPhysicsObject()
-
-						if IsValid(phys) then
-							phys:SetVelocity(dir * vel)
-							self.Energy = self.Energy - (phys:GetMass() / 5)
-						end
-					end
-
-					-- The shield effect and sound, now not running every tick and breaking shit
-					if self.ShieldEffDel < CurTime() then
-						self.ShieldEffDel = CurTime() + 0.15
-						local minimum, maximum = v:WorldSpaceAABB()
-
-						local effectdata = EffectData()
-						effectdata:SetOrigin(v:GetPos())
-						effectdata:SetEntity(self)
-						effectdata:SetScale(minimum:Distance(maximum))
-						util.Effect("mech_shieldEffect", effectdata)
-
-						self:EmitSound("combine mech/shieldHit.mp3", 85, MathRandom(80, 120))
-					end
-
-					-- Shield down
-					if self.Energy <= 0 then
-						self.Energy = -50
-						self:EmitSound("combine mech/ShieldDown.wav", 85, MathRandom(80, 120))
-						self.ShieldDown = true
-
-						local effectdata = EffectData()
-						effectdata:SetStart(self:GetPos())
-						effectdata:SetOrigin(self:GetPos())
-						effectdata:SetScale(1)
-						util.Effect("cball_explode", effectdata)
-					end
-				end
-			end
-		end
-	end
 end
 
 -------------------------------------------
@@ -1868,37 +1784,3 @@ function ENT:FixPropProtection(ply)
 		gamemode.Call("UPSAssignOwnership", ply, self.KeepUpRightProp)
 	end
 end
-
--- Custom collision filtering for the shield sphere
-hook.Add("ShouldCollide", "TTT_ImprovedMech_ShieldCollide", function(ent1, ent2)
-    local shield = nil
-    local other  = nil
-
-    if ent1:GetClass() == "sent_combinemechttt_shield" or ent1.IsMechShield then
-        shield, other = ent1, ent2
-    elseif ent2:GetClass() == "sent_combinemechttt_shield" or ent2.IsMechShield then
-        shield, other = ent2, ent1
-    end
-
-    if not IsValid(shield) then return end
-
-    -- Don't collide with players
-    if other:IsPlayer() then return false end
-
-    -- Don't collide with the world
-    if other:IsWorld() then return false end
-
-    -- Don't collide with the mech
-    if IsValid(shield.ParentMech) and shield.ParentMech:IsMechPart(other) then
-        return false
-    end
-
-    -- Don't collide with held props
-    local phys = other:GetPhysicsObject()
-    if IsValid(phys) and phys:HasGameFlag(FVPHYSICS_PLAYER_HELD) then
-        return false
-    end
-
-    -- Collide with anything else
-    return true
-end)
