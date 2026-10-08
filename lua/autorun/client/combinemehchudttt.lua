@@ -31,6 +31,7 @@ local colours = {
 	combineBlueAlpha = Color(120, 200, 255, 160),
 	darkBg           = Color(10, 15, 20, 200),
 	barBorder        = Color(120, 200, 255, 220),
+	greyColor 		 = Color(70, 70, 70, 255),
 
 	-- Heat/reload bar colours
 	heatCool 	 = Color(120, 200, 255, 220),
@@ -457,14 +458,50 @@ local function drawHud()
 
 	-- Weapon name label
 	local activeWepName = weaponNames[currentWeapon] or "Unknown"
-	draw.SimpleText(activeWepName, "CombineHudText", scrW * 0.131, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	draw.SimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 	-- Weapon icon
 	local iconTex = textures.weaponIcons[currentWeapon]
 	if iconTex then
 		surface.SetTexture(iconTex)
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-		surface.DrawTexturedRect(scrW * 0.06, scrH * 0.124, scrW * 0.077, scrH * 0.122)
+		surface.DrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
+	end
+
+	-- Weapon number row
+	local backgroundX = scrW * 0.041
+	local backgroundY = scrH * 0.272
+	local backgroundW = scrW * 0.179
+
+	-- Box size/spacing
+	local numberBoxes = 6
+	local padding     = backgroundW * 0.035
+	local boxW    	  = (backgroundW - (padding * (numberBoxes + 1))) / numberBoxes
+	local boxH   	  = boxW
+	local backgroundH = boxH + (padding * 2)
+
+	-- Background
+	draw.RoundedBox(0, backgroundX, backgroundY, backgroundW, backgroundH, Color(0, 0, 0, 255))
+	surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+	surface.DrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
+
+	-- Key hint text
+	draw.SimpleTextOutlined("[SHIFT]", "CombineHudText", backgroundX + backgroundW / 2, backgroundY + backgroundH + padding * 1.5, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
+
+	-- Boxes/numbers
+	for i = 1, numberBoxes do
+		local boxX = backgroundX + padding + ((i - 1) * (boxW + padding))
+		local boxY = backgroundY + padding
+
+		local isSelected = (i == currentWeapon)
+		local boxColor   = isSelected and colours.combineBlue or colours.greyColor
+
+		-- Box outline
+		surface.SetDrawColor(boxColor.r, boxColor.g, boxColor.b, boxColor.a)
+		surface.DrawOutlinedRect(boxX, boxY, boxW, boxH, 1)
+
+		-- Box number text
+		draw.SimpleText(tostring(i), "CombineHudText", boxX + (boxW / 2.08), boxY + (boxH / 2.08), boxColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
 	-- Broken texture

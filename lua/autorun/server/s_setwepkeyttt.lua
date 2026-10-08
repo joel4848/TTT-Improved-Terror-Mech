@@ -4,7 +4,13 @@ local WEAPON_KEYS = {
 	[KEY_3] = 3,
 	[KEY_4] = 4,
 	[KEY_5] = 5,
-	[KEY_6] = 6
+	[KEY_6] = 6,
+	[KEY_PAD_1] = 1,
+	[KEY_PAD_2] = 2,
+	[KEY_PAD_3] = 3,
+	[KEY_PAD_4] = 4,
+	[KEY_PAD_5] = 5,
+	[KEY_PAD_6] = 6,
 }
 
 hook.Add("PlayerButtonDown", "CombineMech_Keys", function(ply, button)
