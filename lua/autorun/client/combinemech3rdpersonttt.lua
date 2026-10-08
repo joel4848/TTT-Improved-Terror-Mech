@@ -87,6 +87,8 @@ end)
 local crosshairConVarDefault = nil
 
 hook.Add("TTTPrepareRound", "ImprovedMech_Crosshair_TTTPrepareRound", function()
+	LocalPlayer().CrosshairConvarChanged = nil
+
 	if crosshairConVarDefault == nil then
 		crosshairConVarDefault = GetConVar("ttt_disable_crosshair"):GetInt()
 	elseif crosshairConVarDefault ~= GetConVar("ttt_disable_crosshair"):GetInt() then

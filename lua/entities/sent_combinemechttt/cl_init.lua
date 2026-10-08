@@ -33,12 +33,14 @@ function ENT:Think()
 		if controlMode == 2 then
 			if disableCrosshairConVar:GetInt() ~= 1 then
 				RunConsoleCommand("ttt_disable_crosshair", 1)
+				ply.CrosshairConvarChanged = true
 			end
 		elseif disableCrosshairConVar:GetInt() ~= self.PilotCrosshairConVars[ply] then
 			RunConsoleCommand("ttt_disable_crosshair", self.PilotCrosshairConVars[ply])
 		end
-	elseif IsValid(ply) and self.PilotCrosshairConVars[ply] and self.PilotCrosshairConVars[ply] ~= disableCrosshairConVar:GetInt() then
+	elseif IsValid(ply) and self.PilotCrosshairConVars[ply] and self.PilotCrosshairConVars[ply] ~= disableCrosshairConVar:GetInt() and ply.CrosshairConvarChanged then
 		RunConsoleCommand("ttt_disable_crosshair", self.PilotCrosshairConVars[ply])
+		ply.CrosshairConvarChanged = false
 	end
 end
 
