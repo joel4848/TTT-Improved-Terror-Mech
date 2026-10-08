@@ -307,6 +307,8 @@ function ENT:Initialize()
 	self.ShieldSphere:SetModelScale(0.6, 0)
 	self.ShieldSphere:Spawn()
 
+	self.ShieldSphere:GetPhysicsObject():SetMass(0.1)
+
 	constraint.Weld(self.ShieldSphere, self.KeepUpRightProp, 0, 0, 0, true)
 	constraint.NoCollide(self.ShieldSphere, self.Mech, 0, 0)
 	constraint.NoCollide(self.ShieldSphere, self.KeepUpRightProp, 0, 0)
