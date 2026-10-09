@@ -41,6 +41,8 @@ hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov
 			end
 		end
 
+		local shieldSphereEnt = IsValid(ent) and ent:GetNWEntity("MechShieldSphere") or nil
+
 		if IsValid(ent) then
 			if useCam == 1 then
 				local pos = ent:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
@@ -48,7 +50,7 @@ hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov
 				local Trace = {}
 				Trace.start = ent:GetPos() + (angles:Forward() * -100)
 				Trace.endpos = pos
-				Trace.filter = { ply, ent, saw }
+				Trace.filter = {ply, ent, saw, shieldSphereEnt}
 				local tr = util.TraceLine(Trace)
 
 				if tr.Hit and tr.Entity:GetModel() ~= "models/cm/shield.mdl" then

@@ -168,8 +168,8 @@ CreateConVar("ttt_improvedmech_dev_mode", 0, FCVAR_NONE, "Enables dev mode", 0, 
 hook.Add("TTTBeginRound", "ImprovedMechTestGiveNade", function()
 	if GetConVar("ttt_improvedmech_dev_mode"):GetBool() then
 		for _, ply in player.Iterator() do
-			ply:Give("weapon_ttt_mechnade")
-			ply:SelectWeapon("weapon_ttt_mechnade")
+			ply:Give("weapon_ttt_mechspawner")
+			ply:SelectWeapon("weapon_ttt_mechspawner")
 		end
 	end
 end)
@@ -1567,65 +1567,76 @@ end
 -------------------------------------------
 
 function ENT:ShootBullet()
-	if not IsValid(self.User) or not IsValid(self.KeepUpRightProp) then return end
+    if not IsValid(self.User) or not IsValid(self.KeepUpRightProp) then return end
 
-	local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
+    local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
 
-	local ply = self.User
-	local aimDirection = ply:GetAimVector()
+    local ply = self.User
+    local aimDirection = ply:GetAimVector()
 
-	if self.ChangeView == true then
-		local angles = ply:EyeAngles()
+    if self.ChangeView == true then
+        local angles = ply:EyeAngles()
 
-		local cameraPos = self:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
+        local cameraPos = self:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
 
-		local cameraTrace = {
-			start = self:GetPos() + (angles:Forward() * -100),
-			endpos = cameraPos,
-			filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
-		}
+        local cameraTrace = {
+            start  = self:GetPos() + (angles:Forward() * -100),
+            endpos = cameraPos,
+            filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
+        }
 
-		local cameraResult = util.TraceLine(cameraTrace)
+        local cameraResult = util.TraceLine(cameraTrace)
 
-		if cameraResult.Hit then
-			cameraPos = cameraResult.HitPos
-		end
+        if cameraResult.Hit then
+            cameraPos = cameraResult.HitPos
+        end
 
-		local aimTrace = {
-			start = cameraPos,
-			endpos = cameraPos + angles:Forward() * 100000,
-			filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
-		}
+        local aimTrace = {
+            start  = cameraPos,
+            endpos = cameraPos + angles:Forward() * 100000,
+            filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
+        }
 
-		local aimResult = util.TraceLine(aimTrace)
-		local aimPoint = aimResult.HitPos
+        local aimResult = util.TraceLine(aimTrace)
+        local aimPoint = aimResult.HitPos
 
 		aimDirection = (aimPoint - muzzlePos):GetNormalized()
 	end
 
-	self:EmitSound("weapons/ar1/ar1_dist" .. MathRandom(1, 2) .. ".wav", 75, MathRandom(80, 120))
+    self:EmitSound("weapons/ar1/ar1_dist" .. MathRandom(1, 2) .. ".wav", 75, MathRandom(80, 120))
 
-	-- Muzzle flash
-	local effectdata = EffectData()
-	effectdata:SetOrigin(muzzlePos)
-	effectdata:SetAngles(ply:GetAimVector():Angle())
-	effectdata:SetScale(1)
-	util.Effect("MuzzleEffect", effectdata)
+    local bulletTrace = util.TraceLine({
+        start  = muzzlePos,
+        endpos = muzzlePos + (aimDirection * 100000),
+        filter = {ply, self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
+    })
 
-	local bullet = {
-		Num        	 = 1,
-		Src        	 = muzzlePos,
-		Dir        	 = aimDirection,
-		Spread     	 = Vector(0.03, 0.03, 0),
-		Tracer     	 = 1,
-		TracerName 	 = "Tracer",
-		Force      	 = 0,
-		Damage     	 = 5,
-		Attacker   	 = ply,
-		IgnoreEntity = self.ShieldSphere
-	}
+    local tracerData = EffectData()
+    tracerData:SetStart(muzzlePos)
+    tracerData:SetOrigin(bulletTrace.HitPos)
+    tracerData:SetScale(5000)
+    util.Effect("AirboatGunHeavyTracer", tracerData)
 
-	self:FireBullets(bullet)
+    -- Muzzle flash
+    local muzzleFlashData = EffectData()
+    muzzleFlashData:SetOrigin(muzzlePos)
+    muzzleFlashData:SetAngles(aimDirection:Angle())
+    muzzleFlashData:SetScale(1)
+    util.Effect("MuzzleEffect", muzzleFlashData)
+
+    local bullet = {
+        Num          = 1,
+        Src          = muzzlePos,
+        Dir          = aimDirection,
+        Spread       = Vector(0.03, 0.03, 0),
+        Tracer       = 0,
+        Force        = 0,
+        Damage       = 5,
+        Attacker     = ply,
+        IgnoreEntity = self.ShieldSphere
+    }
+
+    self:FireBullets(bullet)
 end
 
 function ENT:ShootScreamer()

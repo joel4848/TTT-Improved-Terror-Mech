@@ -27,8 +27,10 @@ local function GetEntityPlayerOwner(ent)
 	if IsValid(ent.thrower) and ent.thrower:IsPlayer() then return ent.thrower end
 	if IsValid(ent.DamageOwner) and ent.DamageOwner:IsPlayer() then return ent.DamageOwner end
 
-	local physOwner = ent:GetPhysicsAttacker()
-	if IsValid(physOwner) and physOwner:IsPlayer() then return physOwner end
+	if SERVER then
+		local physOwner = ent:GetPhysicsAttacker()
+		if IsValid(physOwner) and physOwner:IsPlayer() then return physOwner end
+	end
 
 	return nil
 end
