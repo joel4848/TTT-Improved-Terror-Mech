@@ -88,31 +88,38 @@ local function drawNoiseLines(count, scrW, scrH)
 	end
 end
 
-local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, bgColour, vertical)
-	-- Background
-	if vertical then
-		draw.RoundedBox(0, x, y - w, h, w, bgColour or colours.darkBg)
-	else
-		draw.RoundedBox(0, x, y, w, h, bgColour or colours.darkBg)
-	end
+local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, bgColour, vertical, reversed)
+    local barX = x
+    local barY = vertical and (y - w) or y
+    local barW = vertical and h or w
+    local barH = vertical and w or h
 
-	-- Fill
-	local fillW = MathClamp(w * fraction, 0, w)
-	if fillW > 0 then
-		if vertical then
-			draw.RoundedBox(0, x, y - fillW, h, fillW, fillColour)
-		else
-			draw.RoundedBox(0, x, y, fillW, h, fillColour)
-		end
-	end
+    -- Background
+    draw.RoundedBox(0, barX, barY, barW, barH, bgColour or colours.darkBg)
 
-	-- Outline
-	surface.SetDrawColor(borderColour.r, borderColour.g, borderColour.b, borderColour.a)
-	if vertical then
-		surface.DrawOutlinedRect(x, y - w, h, w, 1)
-	else
-		surface.DrawOutlinedRect(x, y, w, h, 1)
-	end
+    -- Fill
+    local fillLength = MathClamp(w * fraction, 0, w)
+    if fillLength > 0 then
+        local fillX, fillY, fillW, fillH
+
+        if vertical then
+            fillX = barX
+            fillW = barW
+            fillH = fillLength
+            fillY = reversed and barY or (y - fillLength)
+        else
+            fillY = barY
+            fillH = barH
+            fillW = fillLength
+            fillX = reversed and (x + w - fillLength) or barX
+        end
+
+        draw.RoundedBox(0, fillX, fillY, fillW, fillH, fillColour)
+    end
+
+    -- Outline
+    surface.SetDrawColor(borderColour.r, borderColour.g, borderColour.b, borderColour.a)
+    surface.DrawOutlinedRect(barX, barY, barW, barH, 1)
 end
 
 local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
@@ -298,7 +305,7 @@ local function drawHud()
 	-- Inside the mech
 	----------------------------------------------------------------------------
 
-	if controlState == 2 and IsValid(mechEnt) then
+	if IsValid(mechEnt) then
 		local shieldAmount	= mechEnt:GetShieldAmount()
 		local shieldPercent = mechEnt:GetShieldPercentage() / 100
 
@@ -346,58 +353,60 @@ local function drawHud()
 
 		local currentMetres = mechEnt.SmoothedMetres
 
-		local pixelsPerMetre = scrH * 0.08
-		local altBarW        = scrW * 0.02
-		local altBarH        = scrH * 0.012
-		local centreY        = scrH * 0.5
+		if controlState == 2 then
+			local pixelsPerMetre = scrH * 0.08
+			local altBarW        = scrW * 0.02
+			local altBarH        = scrH * 0.012
+			local centreY        = scrH * 0.5
 
-		local minMetre = MathMax(0, MathFloor(currentMetres - (scrH / (2 * pixelsPerMetre)) - 1))
-		local maxMetre = MathCeil(currentMetres + (scrH / (2 * pixelsPerMetre)) + 1)
+			local minMetre = MathMax(0, MathFloor(currentMetres - (scrH / (2 * pixelsPerMetre)) - 1))
+			local maxMetre = MathCeil(currentMetres + (scrH / (2 * pixelsPerMetre)) + 1)
 
-		-- Draw the bars
-		for metre = minMetre, maxMetre do
-			local yPos = centreY - ((metre - currentMetres) * pixelsPerMetre) - (altBarH * 0.5)
+			-- Draw the bars
+			for metre = minMetre, maxMetre do
+				local yPos = centreY - ((metre - currentMetres) * pixelsPerMetre) - (altBarH * 0.5)
 
-			if yPos >= 0 and yPos <= (scrH - altBarH) then
-				local barColour = (metre >= maxMetres) and Color(255, 50, 50, 220) or colours.whiteAlpha
+				if yPos >= 0 and yPos <= (scrH - altBarH) then
+					local barColour = (metre >= maxMetres) and Color(255, 50, 50, 220) or colours.whiteAlpha
 
-				local leftBarX 	= scrW * 0.02
-				local rightBarX = scrW * 0.96
+					local leftBarX 	= scrW * 0.02
+					local rightBarX = scrW * 0.96
 
-				draw.RoundedBox(0, leftBarX,  yPos, altBarW, altBarH, barColour)
-				draw.RoundedBox(0, rightBarX, yPos, altBarW, altBarH, barColour)
+					draw.RoundedBox(0, leftBarX,  yPos, altBarW, altBarH, barColour)
+					draw.RoundedBox(0, rightBarX, yPos, altBarW, altBarH, barColour)
 
-				-- Draw "Max" labels
-				if metre == maxMetres then
-					local leftTextX  = leftBarX + altBarW + 10
-					local rightTextX = rightBarX - 10
+					-- Draw "Max" labels
+					if metre == maxMetres then
+						local leftTextX  = leftBarX + altBarW + 10
+						local rightTextX = rightBarX - 10
 
-					draw.SimpleTextOutlined("MAX", "CombineHudText", leftTextX,  yPos + altBarH / 2, barColour, TEXT_ALIGN_LEFT,  TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
-					draw.SimpleTextOutlined("MAX", "CombineHudText", rightTextX, yPos + altBarH / 2, barColour, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+						draw.SimpleTextOutlined("MAX", "CombineHudText", leftTextX,  yPos + altBarH / 2, barColour, TEXT_ALIGN_LEFT,  TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+						draw.SimpleTextOutlined("MAX", "CombineHudText", rightTextX, yPos + altBarH / 2, barColour, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+					end
 				end
 			end
+
+			-- Horizon line
+			surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			local horizonOffset = mechEnt:GetRight():Dot(Vector(0, 0, 1)) * scrH
+			local leftY  = (scrH * 0.5) - horizonOffset
+			local rightY = (scrH * 0.5) + horizonOffset
+			surface.DrawLine(0, leftY, scrW, rightY)
+
+			-- HUD background texture
+			surface.SetTexture(textures.hudBg)
+			surface.SetDrawColor(255, 255, 255, 255)
+			surface.DrawTexturedRect(0, 0, scrW, scrH)
+
+			-- Custom crosshair
+			local crosshairW = scrW * 0.125
+			local crosshairH = scrH * 0.222
+
+			crosshairRotation = crosshairRotation + 0.1
+			surface.SetTexture(textures.crosshair2)
+			surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 		end
-
-		-- Horizon line
-		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-		local horizonOffset = mechEnt:GetRight():Dot(Vector(0, 0, 1)) * scrH
-		local leftY  = (scrH * 0.5) - horizonOffset
-		local rightY = (scrH * 0.5) + horizonOffset
-		surface.DrawLine(0, leftY, scrW, rightY)
-
-		-- HUD background texture
-		surface.SetTexture(textures.hudBg)
-		surface.SetDrawColor(255, 255, 255, 255)
-		surface.DrawTexturedRect(0, 0, scrW, scrH)
-
-		-- Custom crosshair
-		local crosshairW = scrW * 0.125
-		local crosshairH = scrH * 0.222
-
-		crosshairRotation = crosshairRotation + 0.1
-		surface.SetTexture(textures.crosshair2)
-		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-		surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 
 		-- Altitude text
 		local altitudeX = scrW * 0.4
@@ -452,7 +461,7 @@ local function drawHud()
 		-- Health bar & label
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
 		draw.SimpleText("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
+		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg, nil, true)
 
 		drawTargetingBoxes2D(ply, EyePos(), 3000)
 	end
