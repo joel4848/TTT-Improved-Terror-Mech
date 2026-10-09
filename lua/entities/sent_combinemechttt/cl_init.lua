@@ -124,3 +124,17 @@ function ENT:Draw()
 		end
 	end
 end
+
+-- Make normal weapon selection bindings/mouse scrolling break mech weapon firing
+hook.Add("PlayerBindPress", "TTT_ImprovedMech_WeaponSelectionKeys", function(ply, bind, pressed)
+	if IsValid(ply) and ply:InVehicle() then
+		local controlMode = ply:GetNWInt("ControlsCombineMech", 0)
+		if controlMode <= 0 and ply.MechViewMode then
+			controlMode = ply.MechViewMode
+		end
+
+		if controlMode > 0 and (string.find(bind, "slot") or string.find(bind, "invnext") or string.find(bind, "invprev")) then
+			return true
+		end
+	end
+end)
