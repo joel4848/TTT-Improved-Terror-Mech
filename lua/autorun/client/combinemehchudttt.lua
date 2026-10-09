@@ -88,19 +88,31 @@ local function drawNoiseLines(count, scrW, scrH)
 	end
 end
 
-local function drawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, bgColour)
+local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, bgColour, vertical)
 	-- Background
-	draw.RoundedBox(0, x, y, w, h, bgColour or colours.darkBg)
+	if vertical then
+		draw.RoundedBox(0, x, y - w, h, w, bgColour or colours.darkBg)
+	else
+		draw.RoundedBox(0, x, y, w, h, bgColour or colours.darkBg)
+	end
 
 	-- Fill
 	local fillW = MathClamp(w * fraction, 0, w)
 	if fillW > 0 then
-		draw.RoundedBox(0, x, y, fillW, h, fillColour)
+		if vertical then
+			draw.RoundedBox(0, x, y - fillW, h, fillW, fillColour)
+		else
+			draw.RoundedBox(0, x, y, fillW, h, fillColour)
+		end
 	end
 
 	-- Outline
 	surface.SetDrawColor(borderColour.r, borderColour.g, borderColour.b, borderColour.a)
-	surface.DrawOutlinedRect(x, y, w, h, 1)
+	if vertical then
+		surface.DrawOutlinedRect(x, y - w, h, w, 1)
+	else
+		surface.DrawOutlinedRect(x, y, w, h, 1)
+	end
 end
 
 local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
@@ -413,11 +425,14 @@ local function drawHud()
 		draw.SimpleTextOutlined("AMMO:", "CombineHudText", ammoX, ammoY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 		draw.SimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
+		surface.SetFont("CombineHudText")
+		local ammoTextW, _ = surface.GetTextSize(ammoText)
+
 		if isReloading then
-			local rBarW = scrW * 0.08
-			local rBarH = scrH * 0.018
-			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX, ammoY + (scrH * 0.035), colours.heatWarning, TEXT_ALIGN_LEFT, TEXT_ALIGN_BOTTOM, 1, outlineColour)
-			drawOutlinedBar(ammoX, ammoY + (scrH * 0.04), rBarW, rBarH, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg)
+			local reloadingBarW = scrW * 0.009
+			local reloadingBarH = fontSize * 2
+			DrawOutlinedBar(ammoX + ammoTextW / 1.5, ammoY + fontSize, reloadingBarH, reloadingBarW, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg, true)
+			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX + ammoTextW + reloadingBarW * 2, ammoY, colours.heatWarning, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 		end
 
 		local barW         = scrW * 0.28
@@ -432,12 +447,12 @@ local function drawHud()
 		-- Shield bar & label
 		local shieldColour = shieldPercent > 0.3 and colours.white or colours.heatCritical
 		draw.SimpleText("SHIELD  [" .. shieldAmount .. "]", "CombineHudText", shieldLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		drawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, shieldColour, colours.barBorder, colours.darkBg)
+		DrawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, shieldColour, colours.barBorder, colours.darkBg)
 
 		-- Health bar & label
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
 		draw.SimpleText("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		drawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
+		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg)
 
 		drawTargetingBoxes2D(ply, EyePos(), 3000)
 	end
