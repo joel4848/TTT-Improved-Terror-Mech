@@ -1397,7 +1397,10 @@ function ENT:AutoMoveFeet()
 	if self.MoveLeftDel > curTime and (self.FootStatus == 2 or self.FootStatus == 3) then
 		if self.DontMoveLeftDel <= curTime then
 			local vel = MathMin(self.LeftMoveDist, 150)
-			self:EmitSound("combine_mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
+
+			if vel >= 50 then
+				self:EmitSound("combine_mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
+			end
 		end
 
 		self.DontMoveLeftDel = curTime + 1
@@ -1414,7 +1417,10 @@ function ENT:AutoMoveFeet()
 	if self.MoveRightDel > curTime and (self.FootStatus == 1 or self.FootStatus == 3) then
 		if self.DontMoveRightDel <= curTime then
 			local vel = MathMin(self.RightMoveDist, 150)
-			self:EmitSound("combine_mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
+
+			if vel >= 50 then
+				self:EmitSound("combine_mech/servoMove.mp3", vel * 0.5 + 50, 200 - vel)
+			end
 		end
 
 		self.DontMoveRightDel = curTime + 1
