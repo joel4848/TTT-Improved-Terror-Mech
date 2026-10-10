@@ -4,6 +4,7 @@ include("shared.lua")
 
 util.AddNetworkString("TTT_ImprovedMech_ForceView")
 util.AddNetworkString("TTT_ImprovedMech_Crosshair")
+util.AddNetworkString("TTT_ImprovedMech_CycleWeapons")
 
 local MathAbs    = math.abs
 local MathCeil	 = math.ceil
@@ -1801,3 +1802,21 @@ function ENT:FixPropProtection(ply)
 		gamemode.Call("UPSAssignOwnership", ply, self.KeepUpRightProp)
 	end
 end
+
+net.Receive("TTT_ImprovedMech_CycleWeapons", function(len, ply)
+    if not IsValid(ply) or ply:GetNWInt("ControlsCombineMech", 0) <= 0 then return end
+
+    local mech = ply:GetNWEntity("CombineMechEnt")
+    if not IsValid(mech) or mech.User ~= ply then return end
+
+    local direction  = net.ReadInt(8)
+    local currentWep = mech.WepType or 1
+
+    if direction == 1 then
+        local nextWep = currentWep < 6 and currentWep + 1 or 1
+        mech:SelectWeapon(nextWep)
+    elseif direction == -1 then
+        local previousWep = currentWep > 1 and currentWep - 1 or 6
+        mech:SelectWeapon(previousWep)
+    end
+end)
