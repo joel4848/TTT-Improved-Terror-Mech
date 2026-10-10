@@ -8,13 +8,12 @@ ENT.ignoreProps  = {}
 ENT.ActiveEffect = nil
 
 function ENT:SpawnFunction(ply, tr)
---------Spawning the entity and getting some sounds i use.
 	if not tr.Hit then return end
 
 	local SpawnPos = tr.HitPos + tr.HitNormal * 10
 
-	local ent = ents.Create( "sent_mechgravprobeTTT" )
-	ent:SetPos( SpawnPos )
+	local ent = ents.Create("sent_mechgravprobeTTT")
+	ent:SetPos(SpawnPos)
 	ent:Spawn()
 	ent:Activate()
 	ent.Owner = ply
@@ -32,7 +31,7 @@ function ENT:Initialize()
 	self:SetOwner(self:GetOwner())
 	self:PhysicsInit(SOLID_VPHYSICS)
 	self:SetMoveType(MOVETYPE_VPHYSICS)
-	self:SetSolid(SOLID_VPHYSICS)
+	self:SetSolid(SOLID_NONE)
 
 	local phys = self:GetPhysicsObject()
 	if IsValid(phys) then
@@ -43,19 +42,19 @@ function ENT:Initialize()
 	self.DestPos = self.FollowPos
 
 	local yellowSprite = ents.Create("env_sprite");
-	yellowSprite:SetPos( self:GetPos() );
-	yellowSprite:SetKeyValue( "renderfx", "14" )
+	yellowSprite:SetPos(self:GetPos());
+	yellowSprite:SetKeyValue("renderfx", "14")
 
-	yellowSprite:SetKeyValue( "model", "sprites/glow1.vmt")
-	--yellowSprite:SetKeyValue( "model", "Effects/strider_pinch_dudv")
-	yellowSprite:SetKeyValue( "scale","1")
-	yellowSprite:SetKeyValue( "spawnflags","1")
-	yellowSprite:SetKeyValue( "angles","0 0 0")
-	yellowSprite:SetKeyValue( "rendermode","9")
-	yellowSprite:SetKeyValue( "renderamt","255")
-	yellowSprite:SetKeyValue( "rendercolor", "255 222 0" )
+	yellowSprite:SetKeyValue("model", "sprites/glow1.vmt")
+	--yellowSprite:SetKeyValue("model", "Effects/strider_pinch_dudv")
+	yellowSprite:SetKeyValue("scale","1")
+	yellowSprite:SetKeyValue("spawnflags","1")
+	yellowSprite:SetKeyValue("angles","0 0 0")
+	yellowSprite:SetKeyValue("rendermode","9")
+	yellowSprite:SetKeyValue("renderamt","255")
+	yellowSprite:SetKeyValue("rendercolor", "255 222 0")
 	yellowSprite:Spawn()
-	yellowSprite:SetParent( self )
+	yellowSprite:SetParent(self)
 
 	self.ActiveEffect = ents.Create("env_rotorwash_emitter")
 	if IsValid(self.ActiveEffect) then
@@ -64,22 +63,22 @@ function ENT:Initialize()
 		self.ActiveEffect:Activate()
 	end
 
-	self.GravSound = CreateSound(self,"weapons/physcannon/superphys_hold_loop.wav")
+	self.GravSound = CreateSound(self, "weapons/physcannon/superphys_hold_loop.wav")
 	self.GravSound:Play()
 
 	local effectdata = EffectData()
 	effectdata:SetEntity(self)
-	util.Effect("mech_GravProbeEff",effectdata)
+	util.Effect("mech_GravProbeEff", effectdata)
 end
 
 -------------------------------------------PHYS COLLIDE
-function ENT:PhysicsCollide( data, phys )
+function ENT:PhysicsCollide(data, phys)
 	local ent = data.HitEntity
 
 	if ent and ent:IsValid() then
 		timer.Simple(0, function()
 			if IsValid(self) and IsValid(ent) then
-				constraint.NoCollide( self, ent, 0,0 )
+				constraint.NoCollide(self, ent, 0,0)
 			end
 		end)
 
@@ -94,7 +93,7 @@ function ENT:PhysicsUpdate(physObj)
 	if self.GravSound then
 		local pitch = self:GetVelocity():Length()
 		pitch = pitch / 10
-		pitch = math.Clamp( pitch, 50, 200 )
+		pitch = math.Clamp(pitch, 50, 200)
 
 		self.GravSound:ChangePitch(pitch,0)
 	end
@@ -106,9 +105,9 @@ function ENT:PhysicsUpdate(physObj)
 		physObj:ApplyForceCenter(dir * 50)
 	end
 
-	local maxDist = 300
+	local maxDist = 500
 
-	for k, v in pairs(ents.FindInSphere( self:GetPos(), maxDist )) do
+	for k, v in pairs(ents.FindInSphere(self:GetPos(), maxDist)) do
 		if IsValid(v) then
 			local phys = v:GetPhysicsObject()
 			local dontUse = false
@@ -120,10 +119,10 @@ function ENT:PhysicsUpdate(physObj)
 				end
 			end
 
-			local dir = (self:GetPos() - v:GetPos()):GetNormalized()
-			local dist = self:GetPos():Distance(v:GetPos())
+			local dir 	= (self:GetPos() - v:GetPos()):GetNormalized()
+			local dist 	= self:GetPos():Distance(v:GetPos())
 			local force = dist / maxDist
-			local vel = v:GetVelocity()
+			local vel 	= v:GetVelocity()
 			local speed = vel:Length()
 
 			if dontUse == false then
@@ -137,7 +136,7 @@ function ENT:PhysicsUpdate(physObj)
 					v:SetAngles(dir:Angle())
 					phys:SetVelocity(dir * speed * 0.5)
 				elseif (v:IsPlayer() or v:IsNPC()) and IsValid(phys) then
-					v:SetVelocity(dir * force * 400 )
+					v:SetVelocity(dir * force * 400)
 
 					if dist > 200 then
 						if speed < 500 then speed = 500 end
@@ -171,8 +170,8 @@ function ENT:Think()
 		phys:Wake()
 	end
 
-	if isnumber(self.ArmTime) then
-		if self.ArmTime < CurTime() then
+	if isnumber(self.RemoveTime) then
+		if self.RemoveTime < CurTime() then
 			self:Remove()
 		end
 	end

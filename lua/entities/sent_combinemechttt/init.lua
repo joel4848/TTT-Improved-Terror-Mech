@@ -829,36 +829,6 @@ function ENT:PhysicsUpdate(physics)
 				self:StartReload(self.WepType)
 			end
 
-			-- Grav probe movement stuff
-			if self.GravProbeSpawned then
-				-- Forget grav probe if it no longer exists
-				if not IsValid(self.TempMissile) then
-					self.GravProbeSpawned = false
-				elseif self.WepType == 3 and self.User:KeyDown(IN_ATTACK) then
-					local tr = util.TraceLine({
-						start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
-						endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 400),
-						filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.TempMissile, self.ShieldSphere}
-					})
-					self.TempMissile.DestPos = tr.HitPos
-
-					local probePhys = self.TempMissile:GetPhysicsObject()
-					-- This code needs so many 'IsValid' checks dammit Jensson
-					if IsValid(probePhys) then
-						probePhys:SetVelocity(self.TempMissile:GetVelocity() * 0.9)
-					end
-				elseif not self.User:KeyDown(IN_ATTACK) or self.WepType ~= 3 then
-					self:ReleaseGravProbe(4)
-					self:EmitSound("weapons/physcannon/superphys_small_zap" .. MathRandom(1, 4) .. ".wav", 75, MathRandom(80, 120))
-
-					-- Ammo removal/reload check is done on release for the grav probe
-					wepState.clip = wepState.clip - 1
-					if wepState.clip <= 0 then
-						self:StartReload(3)
-					end
-				end
-			end
-
 			-- Attacking
 			if self.User:KeyDown(IN_ATTACK) and (GetConVar("ttt_improvedmech_attack_while_flying"):GetBool() or self.FlyHeight <= 0) and IsValid(self.KeepUpRightCon) then
 				if not wepState.isReloading and curTime >= wepState.nextFire then
@@ -882,12 +852,14 @@ function ENT:PhysicsUpdate(physics)
 							wepState.nextFire = curTime + self:GetWeaponStat(2, "firedelay")
 
 						-- Grav Probe
-						elseif self.WepType == 3 and not self.GravProbeSpawned then
+						elseif self.WepType == 3 then
 							self.GravProbeSpawned = true
 							self:ShootGravProbe()
 
 							self:EmitSound("weapons/physcannon/energy_sing_flyby" .. MathRandom(1, 2) .. ".wav", 75, MathRandom(80, 120))
+							wepState.clip = wepState.clip - 1
 							wepState.nextFire = curTime + self:GetWeaponStat(3, "firedelay")
+							if wepState.clip <= 0 then self:StartReload(3) end
 
 						-- Grenade Launcher
 						elseif self.WepType == 4 then
@@ -907,12 +879,8 @@ function ENT:PhysicsUpdate(physics)
 
 						-- Missile Storm
 						elseif self.WepType == 6 and self.StormMissilesLeft <= 0 then
-							local tr = util.TraceLine({
-								start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
-								endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 4000),
-								filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
-							})
-							self.StormTargetPos = tr.HitPos
+							local _, aimPoint = self:GetPilotAimData()
+							self.StormTargetPos = aimPoint
 
 							self.StormMissilesLeft = wepState.clip
 							wepState.clip = 0
@@ -954,11 +922,6 @@ function ENT:PhysicsUpdate(physics)
 			end
 		else
 			self:SetHoverHeight(130 + self.FlyHeight)
-
-			-- Launch the grav prob on release of the fire button
-			if self.GravProbeSpawned then
-				self:ReleaseGravProbe(2)
-			end
 		end
 
 		-- Send up to date mech stuff to client
@@ -1567,73 +1530,85 @@ end
 -- Weapon bits
 -------------------------------------------
 
+function ENT:GetPilotAimData()
+    if not IsValid(self.User) then
+        return self:GetForward(), self:GetPos() + self:GetForward() * 100000
+    end
+
+    local ply = self.User
+    local angles = ply:EyeAngles()
+    local cameraPos
+
+    if self.ChangeView == true then
+        -- External camera offset
+        cameraPos = self:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
+        local cameraTrace = util.TraceLine({
+            start  = self:GetPos() + (angles:Forward() * -100),
+            endpos = cameraPos,
+            filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere, self.Mech}
+        })
+        if cameraTrace.Hit and cameraTrace.Entity:GetModel() ~= "models/cm/shield.mdl" then
+            cameraPos = cameraTrace.HitPos
+        end
+    else
+        -- Internal camera offset
+        cameraPos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + self.KeepUpRightProp:GetUp() * -20
+    end
+
+    -- Trace from actual camera position
+    local aimTrace = util.TraceLine({
+        start  = cameraPos,
+        endpos = cameraPos + angles:Forward() * 100000,
+        filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere, self.Mech, self.MechUserEnt}
+    })
+
+    local aimPoint = aimTrace.HitPos
+    local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
+    local aimDirection = (aimPoint - muzzlePos):GetNormalized()
+
+    return aimDirection, aimPoint
+end
+
 function ENT:ShootBullet()
     if not IsValid(self.User) or not IsValid(self.KeepUpRightProp) then return end
 
     local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
+    local aimDirection, _ = self:GetPilotAimData()
 
-    local ply = self.User
-    local aimDirection = ply:GetAimVector()
+    -- Manually add inaccuracy
+    local randomSpread = Vector(math.Rand(-0.02, 0.02), math.Rand(-0.02, 0.02), 0)
+    local finalDir = (aimDirection + randomSpread):GetNormalized()
 
-    if self.ChangeView == true then
-        local angles = ply:EyeAngles()
+    self:EmitSound("weapons/ar1/ar1_dist" .. math.random(1, 2) .. ".wav", 75, math.random(80, 120))
 
-        local cameraPos = self:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
-
-        local cameraTrace = {
-            start  = self:GetPos() + (angles:Forward() * -100),
-            endpos = cameraPos,
-            filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
-        }
-
-        local cameraResult = util.TraceLine(cameraTrace)
-
-        if cameraResult.Hit then
-            cameraPos = cameraResult.HitPos
-        end
-
-        local aimTrace = {
-            start  = cameraPos,
-            endpos = cameraPos + angles:Forward() * 100000,
-            filter = {ply, self, self.KeepUpRightProp, self.ShieldSphere}
-        }
-
-        local aimResult = util.TraceLine(aimTrace)
-        local aimPoint = aimResult.HitPos
-
-		aimDirection = (aimPoint - muzzlePos):GetNormalized()
-	end
-
-    self:EmitSound("weapons/ar1/ar1_dist" .. MathRandom(1, 2) .. ".wav", 75, MathRandom(80, 120))
-
+    -- Manually add tracer effects
     local bulletTrace = util.TraceLine({
         start  = muzzlePos,
-        endpos = muzzlePos + (aimDirection * 100000),
-        filter = {ply, self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
+        endpos = muzzlePos + (finalDir * 100000),
+        filter = {self.User, self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
     })
 
     local tracerData = EffectData()
     tracerData:SetStart(muzzlePos)
     tracerData:SetOrigin(bulletTrace.HitPos)
-    tracerData:SetScale(5000)
+    tracerData:SetScale(3000)
     util.Effect("AirboatGunHeavyTracer", tracerData)
 
-    -- Muzzle flash
     local muzzleFlashData = EffectData()
     muzzleFlashData:SetOrigin(muzzlePos)
-    muzzleFlashData:SetAngles(aimDirection:Angle())
+    muzzleFlashData:SetAngles(finalDir:Angle())
     muzzleFlashData:SetScale(1)
     util.Effect("MuzzleEffect", muzzleFlashData)
 
     local bullet = {
         Num          = 1,
         Src          = muzzlePos,
-        Dir          = aimDirection,
-        Spread       = Vector(0.03, 0.03, 0),
+        Dir          = finalDir,
+        Spread       = Vector(0, 0, 0),
         Tracer       = 0,
         Force        = 0,
         Damage       = 5,
-        Attacker     = ply,
+        Attacker     = self.User,
         IgnoreEntity = self.ShieldSphere
     }
 
@@ -1641,138 +1616,112 @@ function ENT:ShootBullet()
 end
 
 function ENT:ShootScreamer()
-	if not IsValid(self.User) then return end
+    if not IsValid(self.User) then return end
 
-	local tr = util.TraceLine({
-		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
-		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 999999),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
-	})
+    local _, aimPoint = self:GetPilotAimData()
+    local bomb = ents.Create("sent_mechscreamerbombTTT")
+    if not IsValid(bomb) then return end
 
-	local bomb = ents.Create("sent_mechscreamerbombTTT")
-	if not IsValid(bomb) then return end
+    bomb:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetUp() * 30 + self.KeepUpRightProp:GetForward() * -20)
+    bomb:SetAngles(self.KeepUpRightProp:GetAngles())
+    bomb.FollowPos 	 = aimPoint
+    bomb.target 	 = nil
+    bomb.ActivateDel = CurTime() + 0.2
+    bomb:Spawn()
+    bomb:Activate()
 
-	bomb:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetUp() * 30 + self.KeepUpRightProp:GetForward() * -20)
-	bomb:SetAngles(self.KeepUpRightProp:GetAngles())
-	bomb.FollowPos 	 = tr.HitPos
-	bomb.target 	 = tr.HitNonWorld and tr.Entity or nil
-	bomb.ActivateDel = CurTime() + 0.2
-	bomb:Spawn()
-	bomb:Activate()
-
-	local bombPhys = bomb:GetPhysicsObject()
-	if IsValid(bombPhys) then
-		bombPhys:Wake()
-		bombPhys:ApplyForceCenter(Vector(0, 0, 1000))
-	end
+    local bombPhys = bomb:GetPhysicsObject()
+    if IsValid(bombPhys) then
+        bombPhys:Wake()
+        bombPhys:ApplyForceCenter(Vector(0, 0, 1000))
+    end
 end
 
 function ENT:ShootGravProbe()
-	if not IsValid(self.User) then return end
+    if not IsValid(self.User) then return end
 
-	local tr = util.TraceLine({
-		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
-		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 400),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
-	})
+    local aimDirection, aimPoint = self:GetPilotAimData()
+    local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
 
-	local grav = ents.Create("sent_mechgravprobeTTT")
-	if not IsValid(grav) then
-		self.GravProbeSpawned = false
-		return
-	end
+    local grav = ents.Create("sent_mechgravprobeTTT")
+    if not IsValid(grav) then
+        self.GravProbeSpawned = false
+        return
+    end
 
-	grav:SetPos(tr.HitPos)
-	grav:SetAngles(self.KeepUpRightProp:GetAngles())
-	grav.FollowPos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + self.User:GetAimVector() * 400
-	grav.ignoreProps = {self:EntIndex(), self.Mech:EntIndex(), self.KeepUpRightProp:EntIndex()}
-	grav.ArmTime = nil
-	grav:Spawn()
-	grav:Activate()
+    grav:SetPos(muzzlePos)
+    grav:SetAngles(self.KeepUpRightProp:GetAngles())
+    grav.ignoreProps = {self:EntIndex(), self.Mech:EntIndex(), self.KeepUpRightProp:EntIndex(), self.ShieldSphere:EntIndex()}
+    grav.RemoveTime = CurTime() + 10
+	grav.DestPos = aimPoint
 
-	if IsValid(grav:GetPhysicsObject()) then grav:GetPhysicsObject():Wake() end
-	self.TempMissile = grav
-end
+    grav:Spawn()
+    grav:Activate()
 
-function ENT:ReleaseGravProbe(delay)
-	self.GravProbeSpawned = false
-	local probe = self.TempMissile
-
-	if not IsValid(probe) then
-		self.TempMissile = nil
-		return
-	end
-
-	probe.DestPos = nil
-	probe.ArmTime = CurTime() + 2
-
-	local phys = probe:GetPhysicsObject()
-	if IsValid(phys) then
-		local dir = IsValid(self.User) and self.User:GetAimVector() or self:GetForward()
-		phys:ApplyForceCenter(dir * 1000)
-	end
+    -- Shoot forwards
+    local phys = grav:GetPhysicsObject()
+    if IsValid(phys) then
+        phys:Wake()
+        phys:ApplyForceCenter(aimDirection * 500)
+    end
 end
 
 function ENT:ShootGrenade()
-	self:EmitSound("weapons/ar2/ar2_altfire.wav", 75, MathRandom(80, 120))
+    self:EmitSound("weapons/ar2/ar2_altfire.wav", 75, math.random(80, 120))
+    local aimDirection, _ = self:GetPilotAimData()
 
-	local gren = ents.Create("sent_mechgrenadeTTT")
-	gren:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * 40 + self.KeepUpRightProp:GetUp() * 10)
-	gren:SetAngles(self.KeepUpRightProp:GetAngles())
-	gren:Spawn()
-	gren:Activate()
+    local gren = ents.Create("sent_mechgrenadeTTT")
+    gren:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * 40 + self.KeepUpRightProp:GetUp() * 10)
+    gren:SetAngles(self.KeepUpRightProp:GetAngles())
+    gren:Spawn()
+    gren:Activate()
 
-	local phys = gren:GetPhysicsObject()
-	if IsValid(phys) then
-		phys:Wake()
-		phys:ApplyForceCenter(self.User:GetAimVector() * 1000)
-	end
+    local phys = gren:GetPhysicsObject()
+    if IsValid(phys) then
+        phys:Wake()
+        phys:ApplyForceCenter(aimDirection * 1000)
+    end
 
-	self.TempMissile = gren
-	constraint.NoCollide(gren, self.Mech, 0, 0)
-	constraint.NoCollide(gren, self.KeepUpRightProp, 0, 0)
-	constraint.NoCollide(gren, self, 0, 0)
+    self.TempMissile = gren
+    constraint.NoCollide(gren, self.Mech, 0, 0)
+    constraint.NoCollide(gren, self.KeepUpRightProp, 0, 0)
+    constraint.NoCollide(gren, self, 0, 0)
 end
 
 function ENT:ShootRocket()
-	self:EmitSound("weapons/stinger_fire1.wav", 75, MathRandom(80, 120))
+    self:EmitSound("weapons/stinger_fire1.wav", 75, math.random(80, 120))
+    local _, aimPoint = self:GetPilotAimData()
 
-	local tr = util.TraceLine({
-		start  = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20),
-		endpos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20) + (self.User:GetAimVector() * 4000),
-		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
-	})
+    local missile = ents.Create("sent_mechmissileTTT")
+    missile:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * -40 + self.KeepUpRightProp:GetUp() * 10)
+    missile:SetAngles(self.KeepUpRightProp:GetAngles())
+    missile.FollowPos 	= aimPoint
+    missile.ActivateDel = 0
+    missile.angchange 	= 5
+    missile:Spawn()
+    missile:Activate()
+    if IsValid(missile:GetPhysicsObject()) then missile:GetPhysicsObject():Wake() end
 
-	local missile = ents.Create("sent_mechmissileTTT")
-	missile:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * -40 + self.KeepUpRightProp:GetUp() * 10)
-	missile:SetAngles(self.KeepUpRightProp:GetAngles())
-	missile.FollowPos 	= tr.HitPos
-	missile.ActivateDel = 0
-	missile.angchange 	= 5
-	missile:Spawn()
-	missile:Activate()
-	if IsValid(missile:GetPhysicsObject()) then missile:GetPhysicsObject():Wake() end
-
-	self.TempMissile = missile
-	constraint.NoCollide(missile, self.Mech, 0, 0)
-	constraint.NoCollide(missile, self.KeepUpRightProp, 0, 0)
-	constraint.NoCollide(missile, self, 0, 0)
+    self.TempMissile = missile
+    constraint.NoCollide(missile, self.Mech, 0, 0)
+    constraint.NoCollide(missile, self.KeepUpRightProp, 0, 0)
+    constraint.NoCollide(missile, self, 0, 0)
 end
 
 function ENT:ShootMissileStorm(targetPos)
-	local missile = ents.Create("sent_mechmissileTTT")
-	missile:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetUp() * 30 + self.KeepUpRightProp:GetForward() * -20)
-	missile:SetAngles(self.KeepUpRightProp:GetUp():Angle() + Angle(MathRandom(-20, 20), MathRandom(-20, 20), MathRandom(-20, 20)))
-	missile.FollowPos 	= targetPos + Vector(MathRandom(-200, 200), MathRandom(-200, 200), 0)
-	missile.ActivateDel = CurTime() + 0.2
-	missile.angchange 	= 10
-	missile:Spawn()
-	missile:Activate()
-	if IsValid(missile:GetPhysicsObject()) then missile:GetPhysicsObject():Wake() end
+    local missile = ents.Create("sent_mechmissileTTT")
+    missile:SetPos(self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetUp() * 30 + self.KeepUpRightProp:GetForward() * -20)
+    missile:SetAngles(self.KeepUpRightProp:GetUp():Angle() + Angle(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20)))
+    missile.FollowPos 	= targetPos + Vector(math.random(-200, 200), math.random(-200, 200), 0)
+    missile.ActivateDel = CurTime() + 0.2
+    missile.angchange 	= 10
+    missile:Spawn()
+    missile:Activate()
+    if IsValid(missile:GetPhysicsObject()) then missile:GetPhysicsObject():Wake() end
 
-	constraint.NoCollide(missile, self.Mech, 0, 0)
-	constraint.NoCollide(missile, self.KeepUpRightProp, 0, 0)
-	constraint.NoCollide(missile, self, 0, 0)
+    constraint.NoCollide(missile, self.Mech, 0, 0)
+    constraint.NoCollide(missile, self.KeepUpRightProp, 0, 0)
+    constraint.NoCollide(missile, self, 0, 0)
 end
 
 function ENT:FixPropProtection(ply)
