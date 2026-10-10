@@ -813,10 +813,10 @@ function ENT:PhysicsUpdate(physics)
 			end
 
 			-- Weapon selection
-			if self.User:KeyDown(IN_SPEED) and self.ChangeWepDel < curTime then
-				self.ChangeWepDel = curTime + 0.5
-				self:SelectWeapon(self.WepType % self.MaxWeps + 1)
-			end
+			-- if self.User:KeyDown(IN_SPEED) and self.ChangeWepDel < curTime then
+			-- 	self.ChangeWepDel = curTime + 0.5
+			-- 	self:SelectWeapon(self.WepType % self.MaxWeps + 1)
+			-- end
 
 			local wepState = self.WeaponStates[self.WepType]
 

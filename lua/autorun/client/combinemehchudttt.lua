@@ -509,9 +509,6 @@ local function drawHud()
 	surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
 	surface.DrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
 
-	-- Key hint text
-	draw.SimpleTextOutlined("[SHIFT]", "CombineHudText", backgroundX + backgroundW / 2, backgroundY + backgroundH + padding * 1.5, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
-
 	-- Boxes/numbers
 	for i = 1, numberBoxes do
 		local boxX = backgroundX + padding + ((i - 1) * (boxW + padding))
@@ -534,6 +531,10 @@ local function drawHud()
 		surface.SetDrawColor(255, 255, 255, 255)
 		surface.DrawTexturedRect(0, 0, scrW, scrH)
 	end
+
+	-- Input key hints text
+	local zoomKeyName = string.upper(input.GetKeyName(input.GetKeyCode(input.LookupBinding("+speed") or "KEY_SHIFT")) or "SHIFT")
+	draw.SimpleTextOutlined("[" .. zoomKeyName .. "] to zoom", "CombineHudText", backgroundX, backgroundY + backgroundH + padding * 1.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, colours.darkBg)
 end
 
 hook.Add("HUDPaint", "DrawCombineMechHud", drawHud)

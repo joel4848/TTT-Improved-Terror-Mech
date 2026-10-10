@@ -1,77 +1,97 @@
 -- combinemech3rdpersonttt_2.lua
 
+local currentMechFOV = nil
+local zoomFOV		 = 10
+local zoomSpeed		 = 10
+
 hook.Add("CalcView", "CombineMech CalcView", function(ply, position, angles, fov)
-	if not ply:Alive() then return end
-	local activeWep = ply:GetActiveWeapon()
-	if IsValid(activeWep) and activeWep:GetClass() == "gmod_camera" then return end
-	if GetViewEntity() ~= ply then return end
+    if not ply:Alive() then return end
+    local activeWep = ply:GetActiveWeapon()
+    if IsValid(activeWep) and activeWep:GetClass() == "gmod_camera" then return end
+    if GetViewEntity() ~= ply then return end
 
-	-- Clean up if no longer in the mech
-	if not ply:InVehicle() then
-		ply.MechViewMode   = nil
-		ply.MechEntity 	   = nil
-		ply.MechSawEntity  = nil
+    -- Clean up if no longer in the mech
+    if not ply:InVehicle() then
+        ply.MechViewMode  = nil
+        ply.MechEntity    = nil
+        ply.MechSawEntity = nil
+        currentMechFOV    = nil
 
-		if ply:GetNWInt("ControlsCombineMech") ~= 0 then
-			ply:SetNWInt("ControlsCombineMech", 0)
-		end
+        if ply:GetNWInt("ControlsCombineMech") ~= 0 then
+            ply:SetNWInt("ControlsCombineMech", 0)
+        end
 
-		return
-	end
+        return
+    end
 
-	-- Get view mode
-	local useCam = ply:GetNWInt("ControlsCombineMech")
-	if (not useCam or useCam == 0) and ply.MechViewMode then
-		useCam = ply.MechViewMode
-	end
+    -- Get view mode
+    local useCam = ply:GetNWInt("ControlsCombineMech")
+    if (not useCam or useCam == 0) and ply.MechViewMode then
+        useCam = ply.MechViewMode
+    end
 
-	if (useCam == 1 or useCam == 2) then
-		-- Fall back if network stuff hasn't arrived yet
-		local ent = ply:GetNWEntity("CombineMechEnt")
-		if not IsValid(ent) and IsValid(ply.MechEntity) then
-			ent = ply.MechEntity
-		end
+    if (useCam == 1 or useCam == 2) then
+        -- Zoomy stuff
+        currentMechFOV 	= currentMechFOV or fov
+        local keyHeld	= ply:KeyDown(IN_SPEED)
+        local targetFOV = keyHeld and zoomFOV or fov
 
-		local saw = ply:GetNWEntity("CombineMechSawEnt")
-		if not IsValid(saw) then
-			if IsValid(ply.MechSawEntity) then
-				saw = ply.MechSawEntity
-			elseif IsValid(ent) and IsValid(ent.KeepUpRightProp) then
-				saw = ent.KeepUpRightProp
-			end
-		end
+        currentMechFOV = FrameTime() > 0 and (FrameTime() * zoomSpeed < 1)
+            and Lerp(FrameTime() * zoomSpeed, currentMechFOV, targetFOV)
+            or targetFOV
 
-		local shieldSphereEnt = IsValid(ent) and ent:GetNWEntity("MechShieldSphere") or nil
+        -- Fallback if network stuff hasn't arrived yet
+        local ent = ply:GetNWEntity("CombineMechEnt")
+        if not IsValid(ent) and IsValid(ply.MechEntity) then
+            ent = ply.MechEntity
+        end
 
-		if IsValid(ent) then
-			if useCam == 1 then
-				local pos = ent:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
+        local saw = ply:GetNWEntity("CombineMechSawEnt")
+        if not IsValid(saw) then
+            if IsValid(ply.MechSawEntity) then
+                saw = ply.MechSawEntity
+            elseif IsValid(ent) and IsValid(ent.KeepUpRightProp) then
+                saw = ent.KeepUpRightProp
+            end
+        end
 
-				local Trace = {}
-				Trace.start = ent:GetPos() + (angles:Forward() * -100)
-				Trace.endpos = pos
-				Trace.filter = {ply, ent, saw, shieldSphereEnt}
-				local tr = util.TraceLine(Trace)
+        local shieldSphereEnt = IsValid(ent) and ent:GetNWEntity("MechShieldSphere") or nil
 
-				if tr.Hit and tr.Entity:GetModel() ~= "models/cm/shield.mdl" then
-					pos = tr.HitPos
-				end
+        if IsValid(ent) then
+            if useCam == 1 then
+                local pos = ent:GetPos() + (angles:Forward() * -300) + (angles:Up() * 75)
 
-				position = pos
-				return GAMEMODE:CalcView(ply, position, angles, fov)
-			elseif useCam == 2 and IsValid(saw) then
-				local pos = saw:GetPos()
-				local ang = saw:GetAngles()
-				ang.p = angles.p
-				ang.y = angles.y
-				angles = ang
-				pos = pos + saw:GetForward() * 50 + saw:GetUp() * -20
+                local Trace = {}
 
-				position = pos
-				return GAMEMODE:CalcView(ply, position, angles, fov)
-			end
-		end
-	end
+                Trace.start  = ent:GetPos() + (angles:Forward() * -100)
+                Trace.endpos = pos
+                Trace.filter = {ply, ent, saw, shieldSphereEnt}
+
+                local tr = util.TraceLine(Trace)
+
+                if tr.Hit and tr.Entity:GetModel() ~= "models/cm/shield.mdl" then
+                    pos = tr.HitPos
+                end
+
+                position = pos
+                return GAMEMODE:CalcView(ply, position, angles, currentMechFOV)
+
+            elseif useCam == 2 and IsValid(saw) then
+                local pos = saw:GetPos()
+                local ang = saw:GetAngles()
+
+                ang.p  = angles.p
+                ang.y  = angles.y
+                angles = ang
+                pos    = pos + saw:GetForward() * 50 + saw:GetUp() * -20
+
+                position = pos
+                return GAMEMODE:CalcView(ply, position, angles, currentMechFOV)
+            end
+        end
+    else
+        currentMechFOV = nil
+    end
 end)
 
 net.Receive("TTT_ImprovedMech_ForceView", function()
