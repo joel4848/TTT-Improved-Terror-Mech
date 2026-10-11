@@ -784,7 +784,7 @@ function ENT:PhysicsUpdate(physics)
 
 			-- Movement (no movement while crouching because it breaks the legs)
 			if not crouching then
-				local forceMultiplier = flying and 1000 or 100
+				local forceMultiplier = flying and 2000 or 100
 				local mechPhys = self.Mech:GetPhysicsObjectNum(0)
 
 				if self.User:KeyDown(IN_FORWARD) then
