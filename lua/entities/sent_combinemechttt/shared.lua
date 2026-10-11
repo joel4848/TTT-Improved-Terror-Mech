@@ -17,7 +17,7 @@ CreateConVar("ttt_improvedmech_shield_recharge_delay", 5, 	FCVAR_REPLICATED, "De
 CreateConVar("ttt_improvedmech_shield_break_delay",    10, 	FCVAR_REPLICATED, "Delay (seconds) before shield starts recharging after breaking", 0, 60)
 CreateConVar("ttt_improvedmech_shield_recharge_rate",  1, 	FCVAR_REPLICATED, "Shield energy recharged per second", 0.1, 100)
 
-CreateConVar("ttt_improvedmech_altitude_max", 20, FCVAR_REPLICATED, "Maximum flight altitude for the mech (metres)", 0, 999)
+CreateConVar("ttt_improvedmech_altitude_max", 20, FCVAR_REPLICATED, "Maximum flight altitude for the mech (metres)", 1, 999)
 CreateConVar("ttt_improvedmech_attack_while_flying", 1, FCVAR_REPLICATED, "Whether the mech can use its weapons while flying", 0, 1)
 
 function ENT:SetupDataTables()

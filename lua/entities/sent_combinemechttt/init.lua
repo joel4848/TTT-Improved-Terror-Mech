@@ -128,7 +128,8 @@ ENT.EnterDel = CurTime()
 -- Hover
 ENT.HoverHeight     = 130
 ENT.HoverMultiplier = 1
-ENT.FlyHeight       = 0
+ENT.IsFlying       	= false
+ENT.Altitude		= 0
 
 -- Move
 ENT.MoveOffsetX      = 0
@@ -726,6 +727,9 @@ function ENT:PhysicsUpdate(physics)
 	if self.MechHealth > 0 then
 		if not IsValid(self.UserSeat) then return end
 
+		local mechPhys = self.Mech:GetPhysicsObjectNum(0)
+		local mechVelocity = mechPhys:GetVelocity()
+
 		self.UserSeat:SetPos(self:GetPos())
 		self.UserSeat:SetAngles(Angle(0, 0, 0))
 
@@ -736,13 +740,14 @@ function ENT:PhysicsUpdate(physics)
 		end
 
 		-- Hover
-		if (self.FootStatus > 0 or self.FlyHeight > 0) and (self.DotProd >= 0.7 or self.JetPlay) then
+		local holdingJump = IsValid(self.User) and self.User:KeyDown(IN_JUMP)
+		if (self.FootStatus > 0 or self.IsFlying or holdingJump) and (self.DotProd >= 0.7 or self.JetPlay) then
 			self:Hover()
 		end
 
 		self:UpdateFootStatus()
 
-		if (self.FootStatus > 0 or self.FlyHeight > 0) and IsValid(self.KeepUpRightCon) then
+		if (self.FootStatus > 0 or self.IsFlying or mechVelocity.z < 0) and IsValid(self.KeepUpRightCon) then
 			self:AutoMoveFeet()
 			self:Stabilize()
 			self:DirectHead()
@@ -766,7 +771,7 @@ function ENT:PhysicsUpdate(physics)
 		if IsValid(self.User) then
 			local moves     = false
 			local crouching = false
-			local flying    = self.FlyHeight > 0
+			local flying    = self.IsFlying
 
 			-- Flashlight
 			if IsValid(self.FlashLightEnt) and IsValid(self.KeepUpRightProp) then
@@ -776,16 +781,15 @@ function ENT:PhysicsUpdate(physics)
 
 			-- Crouching
 			if self.User:KeyDown(IN_DUCK) then
-				self:SetHoverHeight(110 + self.FlyHeight)
+				self:SetHoverHeight(110)
 				crouching = true
 			else
-				self:SetHoverHeight(130 + self.FlyHeight)
+				self:SetHoverHeight(130)
 			end
 
 			-- Movement (no movement while crouching because it breaks the legs)
 			if not crouching then
 				local forceMultiplier = flying and 2000 or 100
-				local mechPhys = self.Mech:GetPhysicsObjectNum(0)
 
 				if self.User:KeyDown(IN_FORWARD) then
 					self.MoveOffsetX = 40
@@ -830,7 +834,7 @@ function ENT:PhysicsUpdate(physics)
 			end
 
 			-- Attacking
-			if self.User:KeyDown(IN_ATTACK) and (GetConVar("ttt_improvedmech_attack_while_flying"):GetBool() or self.FlyHeight <= 0) and IsValid(self.KeepUpRightCon) then
+			if self.User:KeyDown(IN_ATTACK) and (GetConVar("ttt_improvedmech_attack_while_flying"):GetBool() or not self.IsFlying) and IsValid(self.KeepUpRightCon) then
 				if not wepState.isReloading and curTime >= wepState.nextFire then
 					if wepState.clip > 0 then
 
@@ -921,14 +925,14 @@ function ENT:PhysicsUpdate(physics)
 				self:DirectMech()
 			end
 		else
-			self:SetHoverHeight(130 + self.FlyHeight)
+			self:SetHoverHeight(130)
 		end
 
 		-- Send up to date mech stuff to client
 		self:SyncNetVars()
 
 		-- Jet effect stuff
-		if self.FlyHeight > 0 then
+		if self.IsFlying then
 			self.JetTimer = curTime + 1
 
 			if not self.JetPlay then
@@ -936,9 +940,12 @@ function ENT:PhysicsUpdate(physics)
 				self.JetSound:Play()
 			end
 
-			-- Change jet sound pitch depending on height
-			local pitch = 50 + ((self.FlyHeight / 1000) * 150)
+			-- Change jet sound pitch depending on velocity
+			local zVel = MathMax(0, self.Mech:GetPhysicsObjectNum(0):GetVelocity().z)
+			local pitch = MathClamp(80 + (zVel * 0.2), 80, 150)
+
 			self.JetSound:ChangePitch(pitch, 0)
+
 
 			local ang = self:GetAngles()
 
@@ -953,7 +960,7 @@ function ENT:PhysicsUpdate(physics)
 			effectdata2:SetAngles(ang)
 			effectdata2:SetScale(1)
 			util.Effect("MuzzleEffect", effectdata2)
-		else
+		elseif self.JetTimer < CurTime() then
 			-- Stop the jet sound if we aren't flying
 			self.JetPlay = false
 			self.JetSound:Stop()
@@ -979,8 +986,6 @@ function ENT:Think()
 		return
 	end
 
-	-- PrintMessage(HUD_PRINTTALK, "self.FlyHeight = " .. tostring(self.FlyHeight) .. " | GetAngles = " .. tostring(self.KeepUpRightProp:GetAngles()))
-
 	local curTime = CurTime()
 
 	-- Damage the mech if it's in water
@@ -992,7 +997,7 @@ function ENT:Think()
 		self:GetPhysicsObject():Wake()
 
 		-- Jet smoke
-		self:SetIsFlying(self.FlyHeight > 0)
+		self:SetIsFlying(self.IsFlying)
 
 		if not IsValid(self.User) then
 			self.ScreamerCharging = false
@@ -1278,34 +1283,64 @@ end
 function ENT:Hover()
 	if not IsValid(self.Mech) then return false end
 
+	local maxMeters   	= GetConVar("ttt_improvedmech_altitude_max"):GetInt()
+	local maxUnits    	= (maxMeters / 0.01905) + 110
+	local holdingJump 	= IsValid(self.User) and self.User:KeyDown(IN_JUMP)
+	local holdingCrouch = IsValid(self.User) and self.User:KeyDown(IN_DUCK)
+	local mechHeight	= holdingCrouch and 94 or 107
+
 	-- Get the distance between the mech and the ground
 	local tr = util.TraceLine({
 		start  = self.Mech:GetPos(),
-		endpos = self.Mech:GetPos() + Vector(0, 0, self.HoverHeight * -1),
+		endpos = self.Mech:GetPos() + Vector(0, 0, -maxUnits - 500),
 		filter = {self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
 	})
 
-	if tr.Hit then
-		local distance = self.Mech:GetPos():Distance(tr.HitPos)
-		local force    = (self.HoverHeight - distance) * self.HoverMultiplier
+	local distance = tr.Hit and self.Mech:GetPos():Distance(tr.HitPos) or math.huge
+	self.Altitude  = MathMax(distance - mechHeight, 0)
+	local phys = self.Mech:GetPhysicsObjectNum(0)
 
-		-- Max thrust is 50
-		force = MathMin(force, 50)
+	if holdingJump then
+		self.IsFlying = true
 
-		local climbRate   = 3
-		local descentRate = 5
+		if distance < maxUnits then
+			-- Taper off force as the mech reaches max altitude to stop bouncing at the top
+			local maxForce 		  = 3000
+			local minimumForce 	  = 1504.9
+			local forceDifference = maxForce - minimumForce
 
-		local maxMeters = GetConVar("ttt_improvedmech_altitude_max"):GetInt()
-		local maxUnits  = MathMax(maxMeters / 0.01905)
+			local appliedForce 	   = maxForce
+			local taperStartHeight = maxUnits * 0.8
 
-		if IsValid(self.User) and self.User:KeyDown(IN_JUMP) then
-			self.FlyHeight = MathMin(self.FlyHeight + climbRate, maxUnits)
-		else
-			self.FlyHeight = MathMax(0, self.FlyHeight - descentRate)
+			if distance >= taperStartHeight then
+				local distanceIntoTaper = distance - taperStartHeight
+				local totalTaperHeight 	= maxUnits - taperStartHeight
+
+				local taperProgress = distanceIntoTaper / totalTaperHeight
+
+				appliedForce = maxForce - forceDifference * taperProgress
+			end
+
+			-- Apply upwards force and cap max speed
+			local vel = phys:GetVelocity()
+			if vel.z < 250 then
+				phys:ApplyForceCenter(Vector(0, 0, appliedForce))
+			end
 		end
+	else
+		if distance < self.HoverHeight then
+			-- On the ground
+			local force = (self.HoverHeight - distance) * self.HoverMultiplier
+			force = MathMin(force, 50)
+			phys:ApplyForceCenter(Vector(0, 0, 50) * force)
 
-		-- Apply the force
-		self.Mech:GetPhysicsObjectNum(0):ApplyForceCenter(Vector(0, 0, 50) * force)
+			self.IsFlying = false
+		elseif distance > self.HoverHeight then
+			-- Hover down to the ground
+			phys:ApplyForceCenter(Vector(0, 0, 500))
+		else
+			self.IsFlying = false
+		end
 	end
 end
 
@@ -1444,13 +1479,13 @@ function ENT:Steady()
 	local entPos   = self:GetPos()
 	local badLeg   = bonepos1.z > entPos.z or bonepos2.z > entPos.z
 
-	if not IsValid(self.KeepUpRightCon) and (self.FootStatus > 0 or self.FlyHeight > 0 or self.JetPlay) and not badLeg and (self.DotProd >= 0.7 or self.JetPlay) and (self:WaterLevel() == 0 or self.FlyHeight > 0) then
+	if not IsValid(self.KeepUpRightCon) and (self.FootStatus > 0 or self.IsFlying or self.JetPlay) and not badLeg and (self.DotProd >= 0.7 or self.JetPlay) and (self:WaterLevel() == 0 or self.IsFlying) then
 		self.KeepUpRightCon = constraint.Keepupright(self.KeepUpRightProp, self.StabAng, 0, 100000000)
 		self.Mech:GetPhysicsObjectNum(3):EnableGravity(false)
 		self.Mech:GetPhysicsObjectNum(4):EnableGravity(false)
 		self.Mech:GetPhysicsObjectNum(9):EnableGravity(false)
 		self.Mech:GetPhysicsObjectNum(10):EnableGravity(false)
-	elseif IsValid(self.KeepUpRightCon) and (self.FootStatus == 0 or badLeg or self:WaterLevel() >= 1) and self.FlyHeight == 0 and self.JetTimer < CurTime() then
+	elseif IsValid(self.KeepUpRightCon) and (self.FootStatus == 0 or badLeg or self:WaterLevel() >= 1) and not self.IsFlying and self.JetTimer < CurTime() then
 		-- self.KeepUpRightCon:Remove()
 		-- self.KeepUpRightCon = nil
 		self.Mech:GetPhysicsObjectNum(3):EnableGravity(true)
