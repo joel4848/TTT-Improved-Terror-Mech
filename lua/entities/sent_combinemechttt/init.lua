@@ -1512,8 +1512,8 @@ function ENT:DirectMech()
 		if not IsValid(self.Mech) then return false end
 
 		-- Smooth out the movement
-		local angVel = self.Mech:GetPhysicsObjectNum(1):GetAngleVelocity() * -0.5
-		self.Mech:GetPhysicsObjectNum(1):AddAngleVelocity(angVel)
+		local headAngularVelocity = self.Mech:GetPhysicsObjectNum(1):GetAngleVelocity() * -0.5
+		self.Mech:GetPhysicsObjectNum(1):AddAngleVelocity(headAngularVelocity)
 
 		local destPos = self:GetPos() + self.User:GetAimVector() * 500
 		local lDist   = (self:GetPos() + self:GetRight() * -50):Distance(destPos)
@@ -1528,26 +1528,66 @@ function ENT:DirectMech()
 	end
 end
 
--- Aim the mech head towards the player's aim direction
+-- Aim the mech head/guns towards the crosshair
 function ENT:DirectHead()
-	if IsValid(self.User) and self.User:InVehicle() then
-		if not IsValid(self.Mech) then return false end
+    if IsValid(self.User) and self.User:InVehicle() then
+        if not IsValid(self.Mech) then return false end
 
-		-- Smooth out the movement
-		local angVel = self.Mech:GetPhysicsObjectNum(1):GetAngleVelocity() * -0.5
-		self.Mech:GetPhysicsObjectNum(1):AddAngleVelocity(angVel)
+        local headPhys = self.Mech:GetPhysicsObjectNum(1)
+        local rGunPhys = self.Mech:GetPhysicsObjectNum(2)
+		local lGunPhys = self.Mech:GetPhysicsObjectNum(8)
 
-		local destPos = self:GetPos() + self.User:GetAimVector() * 500
-		local lDist = (self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * -50):Distance(destPos)
-		local rDist = (self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * 50):Distance(destPos)
-		local force = MathAbs(lDist - rDist) * 2
+        if IsValid(headPhys) then
+            -- Dampen head movement
+            local headAngularVelocity = headPhys:GetAngleVelocity() * -0.5
+            headPhys:AddAngleVelocity(headAngularVelocity)
 
-		if lDist > rDist then
-			self.Mech:GetPhysicsObjectNum(1):AddAngleVelocity(Vector(0, 1, 0) * force)
-		else
-			self.Mech:GetPhysicsObjectNum(1):AddAngleVelocity(Vector(0, -1, 0) * force)
-		end
-	end
+            local destPos = self:GetPos() + self.User:GetAimVector() * 500
+            local lDist = (self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * -50):Distance(destPos)
+            local rDist = (self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetRight() * 50):Distance(destPos)
+            local force = MathAbs(lDist - rDist) * 2
+
+            local rotVec = (lDist > rDist) and Vector(0, 1, 0) or Vector(0, -1, 0)
+            headPhys:AddAngleVelocity(rotVec * force)
+        end
+
+        local _, aimPoint = self:GetPilotAimData()
+
+        local function AimGun(gunPhys, isRightGun)
+            if IsValid(gunPhys) then
+                -- Dampen gun movement
+                local gunAngularVelocity = gunPhys:GetAngleVelocity()
+                gunPhys:AddAngleVelocity(gunAngularVelocity * -0.8)
+
+                local gunAngle = gunPhys:GetAngles()
+
+                -- Right gun points backwards?
+                local barrelDirection
+				if isRightGun then
+					barrelDirection = -gunAngle:Forward():GetNormalized()
+				else
+					barrelDirection = gunAngle:Forward():GetNormalized()
+				end
+                local targetDirection = (aimPoint - gunPhys:GetPos()):GetNormalized()
+
+                -- Work out required rotation
+                local worldAimAxis = barrelDirection:Cross(targetDirection)
+
+                local localAimAxis = Vector(
+					worldAimAxis:Dot(gunAngle:Forward()),
+					worldAimAxis:Dot(-gunAngle:Right()),
+					worldAimAxis:Dot(gunAngle:Up())
+				)
+
+                -- Rotate the gun
+                gunPhys:AddAngleVelocity(localAimAxis * 250)
+            end
+        end
+
+        -- Apply to both guns
+        AimGun(rGunPhys, true)
+        AimGun(lGunPhys)
+    end
 end
 
 -- Check whether the entity is part of the mech
@@ -1611,28 +1651,38 @@ function ENT:GetPilotAimData()
 end
 
 function ENT:ShootBullet()
-    if not IsValid(self.User) or not IsValid(self.KeepUpRightProp) then return end
+    if not IsValid(self.User) or not IsValid(self.Mech) then return end
 
-    local muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
-    local aimDirection, _ = self:GetPilotAimData()
+    local gunPhys = self.Mech:GetPhysicsObjectNum(2)
+    local muzzlePos
+
+    if IsValid(gunPhys) then
+        muzzlePos = gunPhys:GetPos() + gunPhys:GetAngles():Forward() * -60 + gunPhys:GetAngles():Up() * 12
+    else
+        muzzlePos = self.KeepUpRightProp:GetPos() + self.KeepUpRightProp:GetForward() * 50 + Vector(0, 0, -20)
+    end
+
+    local _, aimPoint = self:GetPilotAimData()
+
+	local aimDirection = (aimPoint - muzzlePos):GetNormalized()
 
     -- Manually add inaccuracy
-    local randomSpread = Vector(math.Rand(-0.02, 0.02), math.Rand(-0.02, 0.02), 0)
+    local randomSpread = Vector(math.Rand(-0.03, 0.03), math.Rand(-0.03, 0.03), 0)
     local finalDir = (aimDirection + randomSpread):GetNormalized()
 
     self:EmitSound("weapons/ar1/ar1_dist" .. math.random(1, 2) .. ".wav", 75, math.random(80, 120))
 
     -- Manually add tracer effects
-    local bulletTrace = util.TraceLine({
-        start  = muzzlePos,
-        endpos = muzzlePos + (finalDir * 100000),
-        filter = {self.User, self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
-    })
+	local bulletTrace = util.TraceLine({
+		start  = muzzlePos,
+		endpos = muzzlePos + (finalDir * 10000),
+		filter = {self.User, self, self.Mech, self.KeepUpRightProp, self.MechUserEnt, self.ShieldSphere}
+	})
 
     local tracerData = EffectData()
     tracerData:SetStart(muzzlePos)
     tracerData:SetOrigin(bulletTrace.HitPos)
-    tracerData:SetScale(3000)
+    tracerData:SetScale(10000)
     util.Effect("AirboatGunHeavyTracer", tracerData)
 
     local muzzleFlashData = EffectData()
