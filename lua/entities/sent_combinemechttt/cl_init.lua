@@ -41,6 +41,7 @@ function ENT:Think()
 	elseif IsValid(ply) and self.PilotCrosshairConVars[ply] and self.PilotCrosshairConVars[ply] ~= disableCrosshairConVar:GetInt() and ply.CrosshairConvarChanged then
 		RunConsoleCommand("ttt_disable_crosshair", self.PilotCrosshairConVars[ply])
 		ply.CrosshairConvarChanged = false
+		ply.SeenHints = false
 	end
 end
 

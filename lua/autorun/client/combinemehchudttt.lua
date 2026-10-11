@@ -244,7 +244,7 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 end
 
 -- HUD drawy bits
-local function drawHud()
+local function DrawHUD()
 	local ply = LocalPlayer()
 	if not IsValid(ply) or not ply:Alive() or not ply:InVehicle() then return end
 	if GetViewEntity() ~= ply then return end
@@ -255,7 +255,11 @@ local function drawHud()
 	if controlState <= 0 and ply.MechViewMode then
 		controlState = ply.MechViewMode
 	end
-	if controlState <= 0 then return end
+	if controlState <= 0 then
+		ply.SeenHints = false
+		ply.HintTimer = CurTime()
+		return
+	end
 
 	local mechEnt = ply:GetNWEntity("CombineMechEnt")
 	if not IsValid(mechEnt) and IsValid(ply.MechEntity) then
@@ -267,7 +271,7 @@ local function drawHud()
 	local healthPercent = mechEnt:GetMechHealthPercentage() / 100
 	local healthAmount 	= mechEnt:GetMechHealthAmount()
 
-	local scrW, scrH 	= ScrW(), ScrH()
+	local scrW, scrH = ScrW(), ScrH()
 
 	-- Distortion for impacts/low health
 	local healthVal = healthPercent * 100
@@ -561,6 +565,70 @@ local function drawHud()
 		local roundTimeText 	 = "Round timer:"
 		draw.SimpleTextOutlined(roundTimeText, "CombineHudText", scrW / 2, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
 		draw.SimpleTextOutlined(roundTimeRemaining, "CombineHudText", scrW / 2, labelY + 30, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
+
+		if not ply.SeenHints then
+			ply.HintTimer = CurTime() + 15
+			ply.SeenHints = true
+		end
+
+		if ply.HintTimer and CurTime() < ply.HintTimer then
+			local timeLeft = ply.HintTimer - CurTime()
+
+			local alphaMult = math.Clamp(timeLeft, 0, 1)
+
+			local sprintKey = string.upper(input.LookupBinding("+speed") or "SHIFT")
+			local jumpKey   = string.upper(input.LookupBinding("+jump") or "SPACE")
+			local duckKey   = string.upper(input.LookupBinding("+duck") or "CTRL")
+			local flashKey  = string.upper(input.LookupBinding("impulse 100") or "F")
+
+			local hintLines = {
+				"Welcome, Pilot",
+				"Use [" .. sprintKey .. "] to zoom",
+				"Use [" .. jumpKey .. "] to fly",
+				"Use [" .. duckKey .. "] to crouch",
+				"Use [" .. flashKey .. "] to toggle flashlight"
+			}
+
+			surface.SetFont("CombineHudText")
+
+			local hintPadding = 15
+			local hintBoxW, hintBoxH = 0, 0
+			local lineHeights = {}
+
+			for i, line in ipairs(hintLines) do
+				local hintTextW, hintTextH = surface.GetTextSize(line)
+				if hintTextW > hintBoxW then hintBoxW = hintTextW end
+
+				hintBoxH 	   = hintBoxH + hintTextH
+				lineHeights[i] = hintTextH
+			end
+
+			hintBoxW = hintBoxW + (hintPadding * 2)
+			hintBoxH = hintBoxH + (hintPadding * 2)
+
+			local boxX = ScrW() - hintBoxW - 20
+			local boxY = 20
+
+			draw.RoundedBox(4, boxX, boxY, hintBoxW, hintBoxH, Color(0, 0, 0, 180 * alphaMult))
+
+			local hintTextAlignmentX = TEXT_ALIGN_LEFT
+			local extraX			 = 0
+			local currentY = boxY + hintPadding
+			for i, line in ipairs(hintLines) do
+				local textColour = Color(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255 * alphaMult)
+
+				if i == 1 then
+					hintTextAlignmentX = TEXT_ALIGN_CENTER
+					extraX			   = hintBoxW / 2 - padding
+				else
+					hintTextAlignmentX = TEXT_ALIGN_LEFT
+					extraX			   = 0
+				end
+
+				draw.SimpleText(line, "CombineHudText", boxX + hintPadding + extraX, currentY, textColour, hintTextAlignmentX, TEXT_ALIGN_TOP)
+				currentY = currentY + lineHeights[i]
+			end
+		end
 	end
 
 	-- Broken texture
@@ -571,7 +639,7 @@ local function drawHud()
 	end
 end
 
-hook.Add("HUDPaint", "DrawCombineMechHud", drawHud)
+hook.Add("HUDPaint", "DrawCombineMechHud", DrawHUD)
 
 -- Only show some standard HUD stuff while inside the mech (add round timer/player health?)
 local hudElementWhitelist = {
