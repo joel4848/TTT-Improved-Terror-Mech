@@ -6,6 +6,7 @@ local MathFloor	   = math.floor
 local MathMax      = math.max
 local MathRand     = math.Rand
 local MathRound    = math.Round
+local StringFormat = string.format
 
 local textures = {
 	hudBg 		= surface.GetTextureID("combinemechhud/hud"),
@@ -32,6 +33,7 @@ local colours = {
 	darkBg           = Color(10, 15, 20, 200),
 	barBorder        = Color(120, 200, 255, 220),
 	greyColor 		 = Color(70, 70, 70, 255),
+	transparent		 = Color(0, 0, 0, 0),
 
 	-- Heat/reload bar colours
 	heatCool 	 = Color(120, 200, 255, 220),
@@ -444,85 +446,121 @@ local function drawHud()
 			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX + ammoTextW + reloadingBarW * 2, ammoY, colours.heatWarning, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 		end
 
-		local barW         = scrW * 0.28
-		local barH         = scrH * 0.022
-		local shieldX      = scrW * 0.018
-		local healthX      = scrW * 0.702
-		local shieldLabelX = scrW * 0.358
-		local healthLabelX = scrW * 0.64
-		local barY         = scrH * 0.942
-		local labelY	   = scrH * 0.9415 - fontSize / 3.5
+		local barW         		 = scrW * 0.28
+		local barH         		 = scrH * 0.022
+		local shieldX      		 = scrW * 0.018
+		local healthX      		 = scrW * 0.702
+		local shieldLabelX 		 = scrW * 0.358
+		local healthLabelX 		 = scrW * 0.64
+		local barY         		 = scrH * 0.942
+		local labelY	   		 = scrH * 0.9415 - fontSize / 3.5
+		local labelSAlignX 		 = TEXT_ALIGN_CENTER
+		local labelHAlignX 		 = TEXT_ALIGN_CENTER
+		local labeloutlineColour = colours.darkBg -- colours.transparent
+		local barBorderColour	 = colours.barBorder
+
+		if controlState == 1 then
+			shieldLabelX 	   = shieldX
+			healthLabelX 	   = healthX + barW
+			labelY		 	   = labelY - scrH * 0.01
+			labelSAlignX 	   = TEXT_ALIGN_LEFT
+			labelHAlignX 	   = TEXT_ALIGN_RIGHT
+			labeloutlineColour = colours.darkBg
+			barBorderColour	   = colours.darkBg
+		end
 
 		-- Shield bar & label
 		local shieldColour = shieldPercent > 0.3 and colours.white or colours.heatCritical
-		draw.SimpleText("SHIELD  [" .. shieldAmount .. "]", "CombineHudText", shieldLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		DrawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, shieldColour, colours.barBorder, colours.darkBg)
+		draw.SimpleTextOutlined("SHIELD  [" .. shieldAmount .. "]", "CombineHudText", shieldLabelX, labelY, colours.white, labelSAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
+		DrawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, shieldColour, barBorderColour, colours.darkBg)
 
 		-- Health bar & label
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
-		draw.SimpleText("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, colours.barBorder, colours.darkBg, nil, true)
+		draw.SimpleTextOutlined("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, labelHAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
+		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, barBorderColour, colours.darkBg, nil, true)
 
 		drawTargetingBoxes2D(ply, EyePos(), 3000)
-	end
 
-	-- Weapon box
-	if currentWeapon ~= previousWeapon then
-		previousWeapon = currentWeapon
-		ply:EmitSound("common/wpn_moveselect.wav")
-	end
+		-- Weapon box
+		if currentWeapon ~= previousWeapon then
+			previousWeapon = currentWeapon
+			ply:EmitSound("common/wpn_moveselect.wav")
+		end
 
-	local consoleW = scrW * 0.237
-	local consoleH = scrH * 0.264
+		local consoleW = scrW * 0.237
+		local consoleH = scrH * 0.264
 
-	-- Box texture
-	surface.SetTexture(textures.wepConsole)
-	surface.SetDrawColor(255, 255, 255, 255)
-	surface.DrawTexturedRect(0, 0, consoleW, consoleH)
+		-- Box texture
+		surface.SetTexture(textures.wepConsole)
+		surface.SetDrawColor(255, 255, 255, 255)
+		surface.DrawTexturedRect(0, 0, consoleW, consoleH)
 
-	-- Weapon name label
-	local activeWepName = weaponNames[currentWeapon] or "Unknown"
-	draw.SimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		-- Weapon name label
+		local activeWepName = weaponNames[currentWeapon] or "Unknown"
+		draw.SimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
-	-- Weapon icon
-	local iconTex = textures.weaponIcons[currentWeapon]
-	if iconTex then
-		surface.SetTexture(iconTex)
+		-- Weapon icon
+		local iconTex = textures.weaponIcons[currentWeapon]
+		if iconTex then
+			surface.SetTexture(iconTex)
+			surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			surface.DrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
+		end
+
+		-- Weapon number row
+		local backgroundX = scrW * 0.041
+		local backgroundY = scrH * 0.272
+		local backgroundW = scrW * 0.179
+
+		-- Box size/spacing
+		local numberBoxes = 6
+		local padding     = backgroundW * 0.035
+		local boxW    	  = (backgroundW - (padding * (numberBoxes + 1))) / numberBoxes
+		local boxH   	  = boxW
+		local backgroundH = boxH + (padding * 2)
+
+		-- Background
+		draw.RoundedBox(0, backgroundX, backgroundY, backgroundW, backgroundH, Color(0, 0, 0, 255))
 		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-		surface.DrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
-	end
+		surface.DrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
 
-	-- Weapon number row
-	local backgroundX = scrW * 0.041
-	local backgroundY = scrH * 0.272
-	local backgroundW = scrW * 0.179
+		-- Boxes/numbers
+		for i = 1, numberBoxes do
+			local boxX = backgroundX + padding + ((i - 1) * (boxW + padding))
+			local boxY = backgroundY + padding
 
-	-- Box size/spacing
-	local numberBoxes = 6
-	local padding     = backgroundW * 0.035
-	local boxW    	  = (backgroundW - (padding * (numberBoxes + 1))) / numberBoxes
-	local boxH   	  = boxW
-	local backgroundH = boxH + (padding * 2)
+			local isSelected = (i == currentWeapon)
+			local boxColor   = isSelected and colours.combineBlue or colours.greyColor
 
-	-- Background
-	draw.RoundedBox(0, backgroundX, backgroundY, backgroundW, backgroundH, Color(0, 0, 0, 255))
-	surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-	surface.DrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
+			-- Box outline
+			surface.SetDrawColor(boxColor.r, boxColor.g, boxColor.b, boxColor.a)
+			surface.DrawOutlinedRect(boxX, boxY, boxW, boxH, 1)
 
-	-- Boxes/numbers
-	for i = 1, numberBoxes do
-		local boxX = backgroundX + padding + ((i - 1) * (boxW + padding))
-		local boxY = backgroundY + padding
+			-- Box number text
+			draw.SimpleText(tostring(i), "CombineHudText", boxX + (boxW / 2.08), boxY + (boxH / 2.08), boxColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		end
 
-		local isSelected = (i == currentWeapon)
-		local boxColor   = isSelected and colours.combineBlue or colours.greyColor
+		-- Input key hints text
+		local zoomKeyName = string.upper(input.GetKeyName(input.GetKeyCode(input.LookupBinding("+speed") or "KEY_SHIFT")) or "SHIFT")
+		draw.SimpleTextOutlined("[" .. zoomKeyName .. "] to zoom", "CombineHudText", backgroundX, backgroundY + backgroundH + padding * 1.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, colours.darkBg)
 
-		-- Box outline
-		surface.SetDrawColor(boxColor.r, boxColor.g, boxColor.b, boxColor.a)
-		surface.DrawOutlinedRect(boxX, boxY, boxW, boxH, 1)
+		-- Round time remaining
+		function SimpleTime(seconds, fmt)
+			if not seconds then seconds = 0 end
 
-		-- Box number text
-		draw.SimpleText(tostring(i), "CombineHudText", boxX + (boxW / 2.08), boxY + (boxH / 2.08), boxColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			local ms = (seconds - math.floor(seconds)) * 100
+			seconds = math.floor(seconds)
+			local s = seconds % 60
+			seconds = (seconds - s) / 60
+			local m = seconds % 60
+
+			return StringFormat(fmt, m, s, ms)
+		end
+
+		local roundTimeRemaining = util.SimpleTime(MathMax(0, GetGlobalFloat("ttt_round_end", 0) - CurTime()), "%02i:%02i")
+		local roundTimeText 	 = "Round timer:"
+		draw.SimpleTextOutlined(roundTimeText, "CombineHudText", scrW / 2, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
+		draw.SimpleTextOutlined(roundTimeRemaining, "CombineHudText", scrW / 2, labelY + 30, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
 	end
 
 	-- Broken texture
@@ -531,10 +569,6 @@ local function drawHud()
 		surface.SetDrawColor(255, 255, 255, 255)
 		surface.DrawTexturedRect(0, 0, scrW, scrH)
 	end
-
-	-- Input key hints text
-	local zoomKeyName = string.upper(input.GetKeyName(input.GetKeyCode(input.LookupBinding("+speed") or "KEY_SHIFT")) or "SHIFT")
-	draw.SimpleTextOutlined("[" .. zoomKeyName .. "] to zoom", "CombineHudText", backgroundX, backgroundY + backgroundH + padding * 1.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, colours.darkBg)
 end
 
 hook.Add("HUDPaint", "DrawCombineMechHud", drawHud)
