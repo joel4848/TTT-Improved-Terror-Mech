@@ -1,3 +1,10 @@
+local DrawSimpleText 		 = draw.SimpleText
+local DrawSimpleTextOutlined = draw.SimpleTextOutlined
+local DrawRoundedBox 		 = draw.RoundedBox
+local DrawRoundedBoxEx 		 = draw.RoundedBoxEx
+
+local InputLookUpBinding = input.LookupBinding
+
 local MathAbs      = math.abs
 local MathApproach = math.Approach
 local MathCeil	   = math.ceil
@@ -6,7 +13,22 @@ local MathFloor	   = math.floor
 local MathMax      = math.max
 local MathRand     = math.Rand
 local MathRound    = math.Round
+
 local StringFormat = string.format
+local StringUpper  = string.upper
+
+local SurfaceDrawLine 		  		 = surface.DrawLine
+local SurfaceDrawOutlinedRect 		 = surface.DrawOutlinedRect
+local SurfaceDrawTexturedRect 		 = surface.DrawTexturedRect
+local SurfaceDrawTexturedRectRotated = surface.DrawTexturedRectRotated
+local SurfaceGetTextSize 	  		 = surface.GetTextSize
+local SurfaceSetDrawColour 	  		 = surface.SetDrawColor
+local SurfaceSetFont 		  		 = surface.SetFont
+local SurfaceSetTexture 	  		 = surface.SetTexture
+
+local UtilTraceLine = util.TraceLine
+
+LocalPlayer().SeenHints = LocalPlayer().SeenHints or false
 
 local textures = {
 	hudBg 		= surface.GetTextureID("combinemechhud/hud"),
@@ -47,6 +69,20 @@ local colours = {
 
 local fontSize = MathRound(ScrH() * 0.033)
 
+surface.CreateFont("CombineHudTextLarger", {
+	font      = "Agency FB",
+	size      = fontSize * 1.5,
+	weight    = 600,
+	antialias = true
+})
+
+surface.CreateFont("CombineHudTextLarge", {
+	font      = "Agency FB",
+	size      = fontSize * 1.2,
+	weight    = 600,
+	antialias = true
+})
+
 surface.CreateFont("CombineHudText", {
 	font      = "Agency FB",
 	size      = fontSize,
@@ -76,7 +112,7 @@ local function drawNoiseBoxes(count, scrW, scrH)
 		local ySize   	 = MathRand(1, scrH * 0.05)
 		local randomGrey = MathRand(1, 255)
 
-		draw.RoundedBox(0, xPos, yPos, xSize, ySize, Color(randomGrey, randomGrey, randomGrey, MathRand(1, 255)))
+		DrawRoundedBox(0, xPos, yPos, xSize, ySize, Color(randomGrey, randomGrey, randomGrey, MathRand(1, 255)))
 	end
 end
 
@@ -85,8 +121,8 @@ local function drawNoiseLines(count, scrW, scrH)
 		local yPos       = MathRand(1, scrH)
 		local randomGrey = MathRand(1, 255)
 
-		surface.SetDrawColor(randomGrey, randomGrey, randomGrey, MathRand(1, 255))
-		surface.DrawLine(0, yPos, scrW, yPos)
+		SurfaceSetDrawColour(randomGrey, randomGrey, randomGrey, MathRand(1, 255))
+		SurfaceDrawLine(0, yPos, scrW, yPos)
 	end
 end
 
@@ -97,7 +133,7 @@ local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, b
     local barH = vertical and w or h
 
     -- Background
-    draw.RoundedBox(0, barX, barY, barW, barH, bgColour or colours.darkBg)
+    DrawRoundedBox(0, barX, barY, barW, barH, bgColour or colours.darkBg)
 
     -- Fill
     local fillLength = MathClamp(w * fraction, 0, w)
@@ -116,12 +152,12 @@ local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, b
             fillX = reversed and (x + w - fillLength) or barX
         end
 
-        draw.RoundedBox(0, fillX, fillY, fillW, fillH, fillColour)
+        DrawRoundedBox(0, fillX, fillY, fillW, fillH, fillColour)
     end
 
     -- Outline
-    surface.SetDrawColor(borderColour.r, borderColour.g, borderColour.b, borderColour.a)
-    surface.DrawOutlinedRect(barX, barY, barW, barH, 1)
+    SurfaceSetDrawColour(borderColour.r, borderColour.g, borderColour.b, borderColour.a)
+    SurfaceDrawOutlinedRect(barX, barY, barW, barH, 1)
 end
 
 local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
@@ -142,7 +178,7 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 			filter[#filter + 1] = shieldSphereEnt
 		end
 
-		local tr = util.TraceLine({
+		local tr = UtilTraceLine({
 			start  = eyePos,
 			endpos = centerPos,
 			filter = filter
@@ -204,27 +240,27 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 		local h = (maxY - minY) + (padding * 2)
 
 		-- Inner colour rectangle
-		surface.SetDrawColor(colour.r, colour.g, colour.b, colour.a or 255)
-		surface.DrawOutlinedRect(x, y, w, h)
+		SurfaceSetDrawColour(colour.r, colour.g, colour.b, colour.a or 255)
+		SurfaceDrawOutlinedRect(x, y, w, h)
 
 		-- Outer black border (+1px)
-		surface.SetDrawColor(0, 0, 0, 255)
-		surface.DrawOutlinedRect(x - 1, y - 1, w + 2, h + 2)
+		SurfaceSetDrawColour(0, 0, 0, 255)
+		SurfaceDrawOutlinedRect(x - 1, y - 1, w + 2, h + 2)
 
 		-- Inner black border (-1px)
-		surface.SetDrawColor(0, 0, 0, 255)
-		surface.DrawOutlinedRect(x + 1, y + 1, w - 2, h - 2)
+		SurfaceSetDrawColour(0, 0, 0, 255)
+		SurfaceDrawOutlinedRect(x + 1, y + 1, w - 2, h - 2)
 
 		-- Text labels
 		local outlineColour = Color(0, 0, 0, 255)
 		local centerX 	= x + (w / 2)
 
 		-- Name
-		draw.SimpleTextOutlined(titleText, "CombineHudText", centerX, y - 14, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, outlineColour)
+		DrawSimpleTextOutlined(titleText, "CombineHudText", centerX, y - 14, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, outlineColour)
 
 		-- Distance
 		local distanceText = MathRound(distance * 0.0254) .. "m"
-		draw.SimpleTextOutlined(distanceText, "CombineHudText", centerX, y + h + 4, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, outlineColour)
+		DrawSimpleTextOutlined(distanceText, "CombineHudText", centerX, y + h + 4, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, outlineColour)
 	end
 
 	-- Target Players
@@ -302,9 +338,9 @@ local function DrawHUD()
 		local offsetX 	  = MathRand(1, scrW * 0.2)
 		local offsetY 	  = MathRand(1, scrH * 0.2)
 
-		surface.SetTexture(textures.hudStatic)
-		surface.SetDrawColor(255, 255, 255, staticAlpha)
-		surface.DrawTexturedRect(-offsetX, -offsetY, scrW + (offsetX * 2), scrH + (offsetY * 2))
+		SurfaceSetTexture(textures.hudStatic)
+		SurfaceSetDrawColour(255, 255, 255, staticAlpha)
+		SurfaceDrawTexturedRect(-offsetX, -offsetY, scrW + (offsetX * 2), scrH + (offsetY * 2))
 	end
 
 	----------------------------------------------------------------------------
@@ -336,7 +372,7 @@ local function DrawHUD()
 
 		local traceStart = mechPos
 
-		local groundTrace = util.TraceLine({
+		local groundTrace = UtilTraceLine({
 			start  = traceStart,
 			endpos = traceStart - Vector(0, 0, maxUnits + 10000),
 			filter = filterEntities
@@ -378,48 +414,48 @@ local function DrawHUD()
 					local leftBarX 	= scrW * 0.02
 					local rightBarX = scrW * 0.96
 
-					draw.RoundedBox(0, leftBarX,  yPos, altBarW, altBarH, barColour)
-					draw.RoundedBox(0, rightBarX, yPos, altBarW, altBarH, barColour)
+					DrawRoundedBox(0, leftBarX,  yPos, altBarW, altBarH, barColour)
+					DrawRoundedBox(0, rightBarX, yPos, altBarW, altBarH, barColour)
 
 					-- Draw "Max" labels
 					if metre == maxMetres then
 						local leftTextX  = leftBarX + altBarW + 10
 						local rightTextX = rightBarX - 10
 
-						draw.SimpleTextOutlined("MAX", "CombineHudText", leftTextX,  yPos + altBarH / 2, barColour, TEXT_ALIGN_LEFT,  TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
-						draw.SimpleTextOutlined("MAX", "CombineHudText", rightTextX, yPos + altBarH / 2, barColour, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+						DrawSimpleTextOutlined("MAX", "CombineHudText", leftTextX,  yPos + altBarH / 2, barColour, TEXT_ALIGN_LEFT,  TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
+						DrawSimpleTextOutlined("MAX", "CombineHudText", rightTextX, yPos + altBarH / 2, barColour, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, 255))
 					end
 				end
 			end
 
 			-- Horizon line
-			surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
 			local horizonOffset = mechEnt:GetRight():Dot(Vector(0, 0, 1)) * scrH
 			local leftY  = (scrH * 0.5) - horizonOffset
 			local rightY = (scrH * 0.5) + horizonOffset
-			surface.DrawLine(0, leftY, scrW, rightY)
+			SurfaceDrawLine(0, leftY, scrW, rightY)
 
 			-- HUD background texture
-			surface.SetTexture(textures.hudBg)
-			surface.SetDrawColor(255, 255, 255, 255)
-			surface.DrawTexturedRect(0, 0, scrW, scrH)
+			SurfaceSetTexture(textures.hudBg)
+			SurfaceSetDrawColour(255, 255, 255, 255)
+			SurfaceDrawTexturedRect(0, 0, scrW, scrH)
 
 			-- Custom crosshair
 			local crosshairW = scrW * 0.125
 			local crosshairH = scrH * 0.222
 
 			crosshairRotation = crosshairRotation + 0.1
-			surface.SetTexture(textures.crosshair2)
-			surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-			surface.DrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
+			SurfaceSetTexture(textures.crosshair2)
+			SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			SurfaceDrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 		end
 
 		-- Altitude text
 		local altitudeX = scrW * 0.4
 		local altitudeY = scrH * 0.5
 
-		draw.SimpleTextOutlined("ALTITUDE: ", "CombineHudText", altitudeX, altitudeY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
-		draw.SimpleTextOutlined(string.format("%03d", currentMetres) .. "m", "CombineHudText", altitudeX, altitudeY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		DrawSimpleTextOutlined("ALTITUDE: ", "CombineHudText", altitudeX, altitudeY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		DrawSimpleTextOutlined(StringFormat("%03d", currentMetres) .. "m", "CombineHudText", altitudeX, altitudeY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
 		-- Ammo HUD
 		local clip        = mechEnt:GetAmmoClip()
@@ -435,19 +471,19 @@ local function DrawHUD()
 		local ammoX       = scrW * 0.6
 		local ammoY       = scrH * 0.5
 		local reserveText = (reserve == 0) and "∞" or tostring(reserve)
-		local ammoText    = string.format("%d / %s", clip, reserveText)
+		local ammoText    = StringFormat("%d / %s", clip, reserveText)
 
-		draw.SimpleTextOutlined("AMMO:", "CombineHudText", ammoX, ammoY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
-		draw.SimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		DrawSimpleTextOutlined("AMMO:", "CombineHudText", ammoX, ammoY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		DrawSimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
-		surface.SetFont("CombineHudText")
-		local ammoTextW, _ = surface.GetTextSize(ammoText)
+		SurfaceSetFont("CombineHudText")
+		local ammoTextW, _ = SurfaceGetTextSize(ammoText)
 
 		if isReloading then
 			local reloadingBarW = scrW * 0.009
 			local reloadingBarH = fontSize * 2
 			DrawOutlinedBar(ammoX + ammoTextW / 1.5, ammoY + fontSize, reloadingBarH, reloadingBarW, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg, true)
-			draw.SimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX + ammoTextW + reloadingBarW * 2, ammoY, colours.heatWarning, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+			DrawSimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX + ammoTextW + reloadingBarW * 2, ammoY, colours.heatWarning, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 		end
 
 		local barW         		 = scrW * 0.28
@@ -475,12 +511,12 @@ local function DrawHUD()
 
 		-- Shield bar & label
 		local shieldColour = shieldPercent > 0.3 and colours.white or colours.heatCritical
-		draw.SimpleTextOutlined("SHIELD  [" .. shieldAmount .. "]", "CombineHudText", shieldLabelX, labelY, colours.white, labelSAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
+		DrawSimpleTextOutlined("SHIELD  [" .. shieldAmount .. "]", "CombineHudText", shieldLabelX, labelY, colours.white, labelSAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
 		DrawOutlinedBar(shieldX, barY, barW, barH, shieldPercent, shieldColour, barBorderColour, colours.darkBg)
 
 		-- Health bar & label
 		local healthColour = healthPercent > 0.3 and colours.white or colours.heatCritical
-		draw.SimpleTextOutlined("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, labelHAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
+		DrawSimpleTextOutlined("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, labelHAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
 		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, barBorderColour, colours.darkBg, nil, true)
 
 		drawTargetingBoxes2D(ply, EyePos(), 3000)
@@ -495,20 +531,20 @@ local function DrawHUD()
 		local consoleH = scrH * 0.264
 
 		-- Box texture
-		surface.SetTexture(textures.wepConsole)
-		surface.SetDrawColor(255, 255, 255, 255)
-		surface.DrawTexturedRect(0, 0, consoleW, consoleH)
+		SurfaceSetTexture(textures.wepConsole)
+		SurfaceSetDrawColour(255, 255, 255, 255)
+		SurfaceDrawTexturedRect(0, 0, consoleW, consoleH)
 
 		-- Weapon name label
 		local activeWepName = weaponNames[currentWeapon] or "Unknown"
-		draw.SimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		DrawSimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 		-- Weapon icon
 		local iconTex = textures.weaponIcons[currentWeapon]
 		if iconTex then
-			surface.SetTexture(iconTex)
-			surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-			surface.DrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
+			SurfaceSetTexture(iconTex)
+			SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			SurfaceDrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
 		end
 
 		-- Weapon number row
@@ -524,9 +560,9 @@ local function DrawHUD()
 		local backgroundH = boxH + (padding * 2)
 
 		-- Background
-		draw.RoundedBox(0, backgroundX, backgroundY, backgroundW, backgroundH, Color(0, 0, 0, 255))
-		surface.SetDrawColor(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-		surface.DrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
+		DrawRoundedBox(0, backgroundX, backgroundY, backgroundW, backgroundH, Color(0, 0, 0, 255))
+		SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+		SurfaceDrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
 
 		-- Boxes/numbers
 		for i = 1, numberBoxes do
@@ -537,105 +573,137 @@ local function DrawHUD()
 			local boxColor   = isSelected and colours.combineBlue or colours.greyColor
 
 			-- Box outline
-			surface.SetDrawColor(boxColor.r, boxColor.g, boxColor.b, boxColor.a)
-			surface.DrawOutlinedRect(boxX, boxY, boxW, boxH, 1)
+			SurfaceSetDrawColour(boxColor.r, boxColor.g, boxColor.b, boxColor.a)
+			SurfaceDrawOutlinedRect(boxX, boxY, boxW, boxH, 1)
 
 			-- Box number text
-			draw.SimpleText(tostring(i), "CombineHudText", boxX + (boxW / 2.08), boxY + (boxH / 2.08), boxColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			DrawSimpleText(tostring(i), "CombineHudText", boxX + (boxW / 2.08), boxY + (boxH / 2.08), boxColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
-
-		-- Input key hints text
-		local zoomKeyName = string.upper(input.GetKeyName(input.GetKeyCode(input.LookupBinding("+speed") or "KEY_SHIFT")) or "SHIFT")
-		draw.SimpleTextOutlined("[" .. zoomKeyName .. "] to zoom", "CombineHudText", backgroundX, backgroundY + backgroundH + padding * 1.5, colours.combineBlue, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, colours.darkBg)
 
 		-- Round time remaining
 		function SimpleTime(seconds, fmt)
 			if not seconds then seconds = 0 end
 
-			local ms = (seconds - math.floor(seconds)) * 100
-			seconds = math.floor(seconds)
-			local s = seconds % 60
-			seconds = (seconds - s) / 60
-			local m = seconds % 60
+			local ms = (seconds - MathFloor(seconds)) * 100
+			seconds  = MathFloor(seconds)
+			local s  = seconds % 60
+			seconds  = (seconds - s) / 60
+			local m  = seconds % 60
 
 			return StringFormat(fmt, m, s, ms)
 		end
 
 		local roundTimeRemaining = util.SimpleTime(MathMax(0, GetGlobalFloat("ttt_round_end", 0) - CurTime()), "%02i:%02i")
 		local roundTimeText 	 = "Round timer:"
-		draw.SimpleTextOutlined(roundTimeText, "CombineHudText", scrW / 2, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
-		draw.SimpleTextOutlined(roundTimeRemaining, "CombineHudText", scrW / 2, labelY + 30, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
+		DrawSimpleTextOutlined(roundTimeText, "CombineHudText", scrW / 2, labelY, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
+		DrawSimpleTextOutlined(roundTimeRemaining, "CombineHudText", scrW / 2, labelY + 30, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, colours.darkBg)
+
+		---------------------------
+		-- Input hints box
+		---------------------------
 
 		if not ply.SeenHints then
-			ply.HintTimer = CurTime() + 15
+			ply.HintTimer = CurTime() + 30
 			ply.SeenHints = true
 		end
 
 		if ply.HintTimer and CurTime() < ply.HintTimer then
 			local timeLeft = ply.HintTimer - CurTime()
 
-			local alphaMult = math.Clamp(timeLeft, 0, 1)
+			local alphaMult = MathClamp(timeLeft, 0, 1)
 
-			local sprintKey = string.upper(input.LookupBinding("+speed") or "SHIFT")
-			local jumpKey   = string.upper(input.LookupBinding("+jump") or "SPACE")
-			local duckKey   = string.upper(input.LookupBinding("+duck") or "CTRL")
-			local flashKey  = string.upper(input.LookupBinding("impulse 100") or "F")
+			local sprintKey = StringUpper(InputLookUpBinding("+speed") or "SHIFT")
+			local jumpKey   = StringUpper(InputLookUpBinding("+jump") or "SPACE")
+			local duckKey   = StringUpper(InputLookUpBinding("+duck") or "CTRL")
+			local flashKey  = StringUpper(InputLookUpBinding("impulse 100") or "F")
 
+			-- Hint text lines
 			local hintLines = {
-				"Welcome, Pilot",
-				"Use [" .. sprintKey .. "] to zoom",
-				"Use [" .. jumpKey .. "] to fly",
-				"Use [" .. duckKey .. "] to crouch",
-				"Use [" .. flashKey .. "] to toggle flashlight"
+				{isCentred = true,  centredText = "-= Welcome, Pilot =-",  font = "CombineHudTextLarger"},
+				{isCentred = true,  centredText = "Mech Controls:", 	   font = "CombineHudTextLarge"},
+				{isCentred = false, keyText 	= "[" .. sprintKey .. "]", actionText = "Zoom", 			 font = "CombineHudText"},
+				{isCentred = false, keyText 	= "[" .. jumpKey .. "]",   actionText = "Fly", 			  	 font = "CombineHudText"},
+				{isCentred = false, keyText 	= "[" .. duckKey .. "]",   actionText = "Crouch", 			 font = "CombineHudText"},
+				{isCentred = false, keyText 	= "[" .. flashKey .. "]",  actionText = "Toggle Flashlight", font = "CombineHudText"}
 			}
 
-			surface.SetFont("CombineHudText")
-
 			local hintPadding = 15
-			local hintBoxW, hintBoxH = 0, 0
-			local lineHeights = {}
+			local hintBoxW	  = 0
+			local hintBoxH 	  = 0
+			local maxHeaderW  = 0
+			local maxKeyW     = 0
+			local maxActionW  = 0
 
+			-- Get text line widths
 			for i, line in ipairs(hintLines) do
-				local hintTextW, hintTextH = surface.GetTextSize(line)
-				if hintTextW > hintBoxW then hintBoxW = hintTextW end
+				SurfaceSetFont(line.font)
 
-				hintBoxH 	   = hintBoxH + hintTextH
-				lineHeights[i] = hintTextH
+				if line.isCentred then
+					local lineTextW, lineTextH = SurfaceGetTextSize(line.centredText)
+
+					if lineTextW > maxHeaderW then maxHeaderW = lineTextW end
+					line.h = lineTextH
+				else
+					local keyTextW, keyTextH 	   = SurfaceGetTextSize(line.keyText)
+					local actionTextW, actionTextH = SurfaceGetTextSize(line.actionText)
+
+					if keyTextW > maxKeyW then maxKeyW = keyTextW end
+					if actionTextW > maxActionW then maxActionW = actionTextW end
+					line.h = MathMax(keyTextH, actionTextH)
+				end
 			end
 
-			hintBoxW = hintBoxW + (hintPadding * 2)
-			hintBoxH = hintBoxH + (hintPadding * 2)
+			-- Work out max background box dimensions
+			local bindContentW = maxKeyW + hintPadding + maxActionW
+			hintBoxW = MathMax(maxHeaderW, bindContentW) + (hintPadding * 2)
 
-			local boxX = ScrW() - hintBoxW - 20
-			local boxY = 20
-
-			draw.RoundedBox(4, boxX, boxY, hintBoxW, hintBoxH, Color(0, 0, 0, 180 * alphaMult))
-
-			local hintTextAlignmentX = TEXT_ALIGN_LEFT
-			local extraX			 = 0
-			local currentY = boxY + hintPadding
 			for i, line in ipairs(hintLines) do
-				local textColour = Color(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255 * alphaMult)
+				hintBoxH = hintBoxH + line.h
+			end
+			hintBoxH = hintBoxH + (hintPadding * 1.5) -- 1.5x padding because 2x padding leaves too big of a gap at the top
 
-				if i == 1 then
-					hintTextAlignmentX = TEXT_ALIGN_CENTER
-					extraX			   = hintBoxW / 2 - padding
+			local hintBoxX = ScrW() - hintBoxW - 20
+			local hintBoxY = 20
+
+			-- Draw main background box
+			DrawRoundedBox(4, hintBoxX, hintBoxY, hintBoxW, hintBoxH, Color(0, 0, 0, 220 * alphaMult))
+
+			-- Draw flashing background box border
+			local borderW = 3
+			local flashInterval = 0.5
+			local borderAlphaMult = (MathFloor(timeLeft / flashInterval) % 2 == 0) and 1 or 0
+			local borderColour = Color(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255 * alphaMult * borderAlphaMult)
+
+			-- Top, left, right, bottom border rectangles
+			DrawRoundedBoxEx(4, hintBoxX - borderW, hintBoxY - borderW, hintBoxW + borderW * 2, borderW, borderColour, true, true)
+			DrawRoundedBox(0, hintBoxX - borderW, hintBoxY, borderW, hintBoxH, borderColour)
+			DrawRoundedBox(0, hintBoxX + hintBoxW, hintBoxY, borderW, hintBoxH, borderColour)
+			DrawRoundedBoxEx(4, hintBoxX - borderW, hintBoxY + hintBoxH, hintBoxW + borderW * 2, borderW, borderColour, false, false, true, true)
+
+			-- Draw the text
+			local currentY = hintBoxY + hintPadding / 2
+			local textColour = Color(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255 * alphaMult)
+
+			for i, line in ipairs(hintLines) do
+				if line.isCentred then
+					-- Centred text
+					DrawSimpleText(line.centredText, line.font, hintBoxX + (hintBoxW / 2), currentY, textColour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 				else
-					hintTextAlignmentX = TEXT_ALIGN_LEFT
-					extraX			   = 0
+					-- Keys aligned left, then a gap, then actions aligned left
+					DrawSimpleText(line.keyText, line.font, hintBoxX + hintPadding, currentY, textColour, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+					DrawSimpleText(line.actionText, line.font, hintBoxX + hintPadding + maxKeyW + hintPadding * 4, currentY, textColour, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
 				end
 
-				draw.SimpleText(line, "CombineHudText", boxX + hintPadding + extraX, currentY, textColour, hintTextAlignmentX, TEXT_ALIGN_TOP)
-				currentY = currentY + lineHeights[i]
+				currentY = currentY + line.h
 			end
 		end
 	end
 
 	-- Broken texture
 	if controlState == 2 and healthPercent <= 0 then
-		surface.SetTexture(textures.hudBroken)
-		surface.SetDrawColor(255, 255, 255, 255)
-		surface.DrawTexturedRect(0, 0, scrW, scrH)
+		SurfaceSetTexture(textures.hudBroken)
+		SurfaceSetDrawColour(255, 255, 255, 255)
+		SurfaceDrawTexturedRect(0, 0, scrW, scrH)
 	end
 end
 
