@@ -107,14 +107,25 @@ net.Receive("TTT_ImprovedMech_ForceView", function()
 	end
 end)
 
-local crosshairConVarDefault = nil
+LocalPlayer().crosshairConVarDefault = LocalPlayer().crosshairConVarDefault or nil
+
+hook.Add("InitPostEntity", "ImprovedMech_Crosshair_InitPostEntity", function()
+    if LocalPlayer().crosshairConVarDefault == nil then
+        LocalPlayer().crosshairConVarDefault = GetConVar("ttt_disable_crosshair"):GetInt()
+    end
+end)
+
+hook.Add("ShutDown", "ImprovedMech_Crosshair_ShutDown", function()
+    RunConsoleCommand("ttt_disable_crosshair", LocalPlayer().crosshairConVarDefault)
+end )
 
 hook.Add("TTTPrepareRound", "ImprovedMech_Crosshair_TTTPrepareRound", function()
-	LocalPlayer().CrosshairConvarChanged = nil
+    local ply = LocalPlayer()
+	ply.CrosshairConvarChanged = nil
 
-	if crosshairConVarDefault == nil then
-		crosshairConVarDefault = GetConVar("ttt_disable_crosshair"):GetInt()
-	elseif crosshairConVarDefault ~= GetConVar("ttt_disable_crosshair"):GetInt() then
-		RunConsoleCommand("ttt_disable_crosshair", crosshairConVarDefault)
+	if ply.crosshairConVarDefault == nil then
+		ply.crosshairConVarDefault = GetConVar("ttt_disable_crosshair"):GetInt()
+	elseif ply.crosshairConVarDefault ~= GetConVar("ttt_disable_crosshair"):GetInt() then
+		RunConsoleCommand("ttt_disable_crosshair", ply.crosshairConVarDefault)
 	end
 end)
