@@ -9,10 +9,13 @@ local MathAbs      = math.abs
 local MathApproach = math.Approach
 local MathCeil	   = math.ceil
 local MathClamp    = math.Clamp
+local MathCos	   = math.cos
 local MathFloor	   = math.floor
 local MathMax      = math.max
+local MathRad	   = math.rad
 local MathRand     = math.Rand
 local MathRound    = math.Round
+local MathSin	   = math.sin
 
 local StringFormat = string.format
 local StringUpper  = string.upper
@@ -58,7 +61,6 @@ local colours = {
 	transparent		 = Color(0, 0, 0, 0),
 
 	-- Heat/reload bar colours
-	heatCool 	 = Color(120, 200, 255, 220),
 	heatWarning  = Color(255, 160, 40, 220),
 	heatCritical = Color(255, 50, 50, 220),
 
@@ -253,14 +255,14 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 
 		-- Text labels
 		local outlineColour = Color(0, 0, 0, 255)
-		local centerX 	= x + (w / 2)
+		local centreX 		= x + (w / 2)
 
 		-- Name
-		DrawSimpleTextOutlined(titleText, "CombineHudText", centerX, y - 14, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, outlineColour)
+		DrawSimpleTextOutlined(titleText, "CombineHudText", centreX, y - 14, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM, 1, outlineColour)
 
 		-- Distance
 		local distanceText = MathRound(distance * 0.0254) .. "m"
-		DrawSimpleTextOutlined(distanceText, "CombineHudText", centerX, y + h + 4, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, outlineColour)
+		DrawSimpleTextOutlined(distanceText, "CombineHudText", centreX, y + h + 4, colour, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, outlineColour)
 	end
 
 	-- Target Players
@@ -280,6 +282,11 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 end
 
 -- HUD drawy bits
+local smoothedRoll
+local combineBlueR = colours.combineBlue.r
+local combineBlueG = colours.combineBlue.g
+local combineBlueB = colours.combineBlue.b
+
 local function DrawHUD()
 	local ply = LocalPlayer()
 	if not IsValid(ply) or not ply:Alive() or not ply:InVehicle() then return end
@@ -399,7 +406,8 @@ local function DrawHUD()
 			local pixelsPerMetre = scrH * 0.08
 			local altBarW        = scrW * 0.02
 			local altBarH        = scrH * 0.012
-			local centreY        = scrH * 0.5
+			local centreX 		 = scrW * 0.5
+			local centreY 		 = scrH * 0.5
 
 			local minMetre = MathMax(0, MathFloor(currentMetres - (scrH / (2 * pixelsPerMetre)) - 1))
 			local maxMetre = MathCeil(currentMetres + (scrH / (2 * pixelsPerMetre)) + 1)
@@ -429,11 +437,22 @@ local function DrawHUD()
 			end
 
 			-- Horizon line
-			SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
-			local horizonOffset = mechEnt:GetRight():Dot(Vector(0, 0, 1)) * scrH
-			local leftY  = (scrH * 0.5) - horizonOffset
-			local rightY = (scrH * 0.5) + horizonOffset
-			SurfaceDrawLine(0, leftY, scrW, rightY)
+			-- Get the raw roll angle from the mech
+			local rawRoll = mechEnt:GetAngles().r
+
+			-- Try and smooth out line jitters (not really that noticeable but I've done it now)
+			smoothedRoll = LerpAngle(FrameTime() * 5, Angle(0, 0, smoothedRoll or rawRoll), Angle(0, 0, rawRoll)).r
+
+			local viewRollRads = MathRad(smoothedRoll)
+
+			-- Work out horizontal and vertical offsets
+			-- Could just use `scrW` for offsetH but fuck it, if we're doing trig for one why not do it for both?
+			local offsetH = MathCos(viewRollRads) * scrW
+			local offsetV = MathSin(viewRollRads) * scrW
+
+			-- Draw the line
+			SurfaceSetDrawColour(combineBlueR, combineBlueG, combineBlueB, 255)
+			SurfaceDrawLine(centreX - offsetH, centreY + offsetV, centreX + offsetH, centreY - offsetV)
 
 			-- HUD background texture
 			SurfaceSetTexture(textures.hudBg)
@@ -446,7 +465,7 @@ local function DrawHUD()
 
 			crosshairRotation = crosshairRotation + 0.1
 			SurfaceSetTexture(textures.crosshair2)
-			SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			SurfaceSetDrawColour(combineBlueR, combineBlueG, combineBlueB, 255)
 			SurfaceDrawTexturedRectRotated(scrW * 0.5, scrH * 0.5, crosshairW, crosshairH, crosshairRotation)
 		end
 
@@ -543,7 +562,7 @@ local function DrawHUD()
 		local iconTex = textures.weaponIcons[currentWeapon]
 		if iconTex then
 			SurfaceSetTexture(iconTex)
-			SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+			SurfaceSetDrawColour(combineBlueR, combineBlueG, combineBlueB, 255)
 			SurfaceDrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
 		end
 
@@ -561,7 +580,7 @@ local function DrawHUD()
 
 		-- Background
 		DrawRoundedBox(0, backgroundX, backgroundY, backgroundW, backgroundH, Color(0, 0, 0, 255))
-		SurfaceSetDrawColour(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255)
+		SurfaceSetDrawColour(combineBlueR, combineBlueG, combineBlueB, 255)
 		SurfaceDrawOutlinedRect(backgroundX, backgroundY, backgroundW, backgroundH, 1)
 
 		-- Boxes/numbers
@@ -603,7 +622,7 @@ local function DrawHUD()
 		---------------------------
 
 		if not ply.SeenHints then
-			ply.HintTimer = CurTime() + 30
+			ply.HintTimer = CurTime() + 20
 			ply.SeenHints = true
 		end
 
@@ -672,7 +691,7 @@ local function DrawHUD()
 			local borderW = 3
 			local flashInterval = 0.5
 			local borderAlphaMult = (MathFloor(timeLeft / flashInterval) % 2 == 0) and 1 or 0
-			local borderColour = Color(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255 * alphaMult * borderAlphaMult)
+			local borderColour = Color(combineBlueR, combineBlueG, combineBlueB, 255 * alphaMult * borderAlphaMult)
 
 			-- Top, left, right, bottom border rectangles
 			DrawRoundedBoxEx(4, hintBoxX - borderW, hintBoxY - borderW, hintBoxW + borderW * 2, borderW, borderColour, true, true)
@@ -682,7 +701,7 @@ local function DrawHUD()
 
 			-- Draw the text
 			local currentY = hintBoxY + hintPadding / 2
-			local textColour = Color(colours.combineBlue.r, colours.combineBlue.g, colours.combineBlue.b, 255 * alphaMult)
+			local textColour = Color(combineBlueR, combineBlueG, combineBlueB, 255 * alphaMult)
 
 			for i, line in ipairs(hintLines) do
 				if line.isCentred then
