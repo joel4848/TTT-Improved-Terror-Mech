@@ -1667,7 +1667,7 @@ function ENT:ShootBullet()
 	local aimDirection = (aimPoint - muzzlePos):GetNormalized()
 
     -- Manually add inaccuracy
-    local randomSpread = Vector(math.Rand(-0.03, 0.03), math.Rand(-0.03, 0.03), 0)
+    local randomSpread = Vector(math.Rand(-0.015, 0.015), math.Rand(-0.015, 0.015), 0)
     local finalDir = (aimDirection + randomSpread):GetNormalized()
 
     self:EmitSound("weapons/ar1/ar1_dist" .. math.random(1, 2) .. ".wav", 75, math.random(80, 120))
