@@ -102,12 +102,9 @@ surface.CreateFont("CombineHudSmall", {
 
 local weaponNames       = {"Turret", "Screamer", "Grav Probe", "Grenades", "Missile", "Missile Storm"}
 local crosshairRotation = 0
-local lastHealth        = 100
-local noiseEndTime      = 0
-local noiseStartTime    = 0
 local previousWeapon    = 1
 
-local function drawNoiseBoxes(count, scrW, scrH)
+local function DrawNoiseBoxes(count, scrW, scrH)
 	for i = 1, count do
 		local xPos    	 = MathRand(1, scrW)
 		local yPos    	 = MathRand(1, scrH)
@@ -119,7 +116,7 @@ local function drawNoiseBoxes(count, scrW, scrH)
 	end
 end
 
-local function drawNoiseLines(count, scrW, scrH)
+local function DrawNoiseLines(count, scrW, scrH)
 	for i = 1, count do
 		local yPos       = MathRand(1, scrH)
 		local randomGrey = MathRand(1, 255)
@@ -163,7 +160,7 @@ local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, b
     SurfaceDrawOutlinedRect(barX, barY, barW, barH, 1)
 end
 
-local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
+local function DrawTargetingBoxes2D(ply, eyePos, maxDistance)
 	local function RenderBox(targetEnt, colour, titleText)
 		if not IsValid(targetEnt) or targetEnt == ply or targetEnt == ply:GetVehicle() then return end
 		if targetEnt:IsPlayer() and ((not targetEnt:Alive()) or targetEnt:IsSpec()) then return end
@@ -324,31 +321,37 @@ local function DrawHUD()
 	-- Distortion for impacts/low health
 	local healthVal = healthPercent * 100
 
+	if mechEnt.LastHealth == nil then
+		mechEnt.LastHealth = healthVal
+		mechEnt.NoiseStartTime = 0
+		mechEnt.NoiseEndTime = 0
+	end
+
 	if healthVal < 49 then
 		local lineCount = MathRound(MathRand(1, 50 - healthVal))
-		drawNoiseLines(lineCount, scrW, scrH)
+		DrawNoiseLines(lineCount, scrW, scrH)
 
 		if healthVal < 24 then
 			local boxCount = MathRound(MathRand(1, 25 - healthVal))
-			drawNoiseBoxes(boxCount, scrW, scrH)
+			DrawNoiseBoxes(boxCount, scrW, scrH)
 		end
 	end
 
 	local currentTime = CurTime()
-	if lastHealth ~= healthVal then
-		noiseStartTime = MathAbs(lastHealth - healthVal) / 10
-		noiseEndTime   = currentTime + noiseStartTime
-		lastHealth 	   = healthVal
+	if mechEnt.LastHealth ~= healthVal then
+		mechEnt.NoiseStartTime = MathAbs(mechEnt.LastHealth - healthVal) / 10
+		mechEnt.NoiseEndTime   = currentTime + mechEnt.NoiseStartTime
+		mechEnt.LastHealth     = healthVal
 	end
 
-	if noiseEndTime > currentTime then
-		local noisePerc = 1 - ((noiseEndTime - currentTime) / noiseStartTime)
-		drawNoiseBoxes(MathRound(noisePerc * 50), scrW, scrH)
-		drawNoiseLines(MathRound(noisePerc * 50), scrW, scrH)
+	if mechEnt.NoiseEndTime > currentTime and mechEnt.NoiseStartTime > 0 then
+		local noisePerc = 1 - ((mechEnt.NoiseEndTime - currentTime) / mechEnt.NoiseStartTime)
+		DrawNoiseBoxes(MathRound(noisePerc * 50), scrW, scrH)
+		DrawNoiseLines(MathRound(noisePerc * 50), scrW, scrH)
 
 		local staticAlpha = (noisePerc * 100) + MathRand(1, 50)
-		local offsetX 	  = MathRand(1, scrW * 0.2)
-		local offsetY 	  = MathRand(1, scrH * 0.2)
+		local offsetX     = MathRand(1, scrW * 0.2)
+		local offsetY     = MathRand(1, scrH * 0.2)
 
 		SurfaceSetTexture(textures.hudStatic)
 		SurfaceSetDrawColour(255, 255, 255, staticAlpha)
@@ -543,7 +546,7 @@ local function DrawHUD()
 		DrawSimpleTextOutlined("HEALTH  [" .. healthAmount .. "]", "CombineHudText", healthLabelX, labelY, colours.white, labelHAlignX, TEXT_ALIGN_CENTER, 1, labeloutlineColour)
 		DrawOutlinedBar(healthX, barY, barW, barH, healthPercent, healthColour, barBorderColour, colours.darkBg, nil, true)
 
-		drawTargetingBoxes2D(ply, EyePos(), 3000)
+		DrawTargetingBoxes2D(ply, EyePos(), 3000)
 
 		-- Weapon box
 		if currentWeapon ~= previousWeapon then
@@ -742,7 +745,7 @@ local hudElementWhitelist = {
 	["TTTTButton"] = true,
 }
 
-local function hideStandardHud(elementName)
+local function HideStandardHud(elementName)
 	local ply = LocalPlayer()
 	if IsValid(ply) and ply:Alive() and ply:InVehicle() then
 		local controlState = ply:GetNWInt("ControlsCombineMech", 0)
@@ -756,4 +759,4 @@ local function hideStandardHud(elementName)
 	end
 end
 
-hook.Add("HUDShouldDraw", "CombineMechHideHud", hideStandardHud)
+hook.Add("HUDShouldDraw", "CombineMechHideHud", HideStandardHud)
