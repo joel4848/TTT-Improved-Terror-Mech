@@ -59,6 +59,7 @@ local colours = {
 	barBorder        = Color(120, 200, 255, 220),
 	greyColor 		 = Color(70, 70, 70, 255),
 	transparent		 = Color(0, 0, 0, 0),
+	traitorRed		 = Color(206, 1, 0, 255),
 
 	-- Heat/reload bar colours
 	heatWarning  = Color(255, 160, 40, 220),
@@ -163,7 +164,7 @@ local function DrawOutlinedBar(x, y, w, h, fraction, fillColour, borderColour, b
 end
 
 local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
-	local function renderBox(targetEnt, colour, titleText)
+	local function RenderBox(targetEnt, colour, titleText)
 		if not IsValid(targetEnt) or targetEnt == ply or targetEnt == ply:GetVehicle() then return end
 		if targetEnt:IsPlayer() and ((not targetEnt:Alive()) or targetEnt:IsSpec()) then return end
 
@@ -268,7 +269,11 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 	-- Target Players
 	for _, p in ipairs(player.GetAll()) do
 		if p ~= ply and p:Alive() and not p:IsSpec() then
-			renderBox(p, colours.targetPlayer, p:Nick())
+			if (CR_VERSION and ply:IsTraitorTeam() and p:IsTraitorTeam()) or (ply:IsTraitor() and p:IsTraitor()) then
+				RenderBox(p, colours.traitorRed, p:Nick())
+			else
+				RenderBox(p, colours.targetPlayer, p:Nick())
+			end
 		end
 	end
 
@@ -276,7 +281,7 @@ local function drawTargetingBoxes2D(ply, eyePos, maxDistance)
 	for _, npc in ipairs(ents.FindByClass("npc_*")) do
 		if IsValid(npc) and npc:Health() > 0 then
 			local npcClass = npc:GetClass():sub(5):upper()
-			renderBox(npc, colours.targetNpc, npcClass)
+			RenderBox(npc, colours.targetNpc, npcClass)
 		end
 	end
 end
