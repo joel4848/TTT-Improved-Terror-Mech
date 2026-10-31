@@ -51,6 +51,7 @@ local textures = {
 }
 
 local colours = {
+	red				 = Color(255, 0, 0, 255),
 	white            = Color(255, 255, 255, 255),
 	whiteAlpha       = Color(255, 255, 255, 180),
 	combineBlue      = Color(120, 200, 255, 255),
@@ -283,6 +284,15 @@ local function DrawTargetingBoxes2D(ply, eyePos, maxDistance)
 	end
 end
 
+local WEP_NAMES_LOWER = {"turret", "screamer", "gravprobe", "grenade", "missile", "missilestorm"}
+
+local function IsWeaponDisabled(wepID)
+	local wepName = WEP_NAMES_LOWER[wepID]
+	if not wepName then return false end
+	local convar = GetConVar("ttt_improvedmech_" .. wepName .. "_totalammo")
+	return convar and convar:GetInt() == 0
+end
+
 -- HUD drawy bits
 local smoothedRoll
 local combineBlueR = colours.combineBlue.r
@@ -315,6 +325,7 @@ local function DrawHUD()
 	local currentWeapon = mechEnt:GetWeaponType()
 	local healthPercent = mechEnt:GetMechHealthPercentage() / 100
 	local healthAmount 	= mechEnt:GetMechHealthAmount()
+	local isDisabled    = IsWeaponDisabled(currentWeapon)
 
 	local scrW, scrH = ScrW(), ScrH()
 
@@ -485,32 +496,37 @@ local function DrawHUD()
 		DrawSimpleTextOutlined(StringFormat("%03d", currentMetres) .. "m", "CombineHudText", altitudeX, altitudeY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
 		-- Ammo HUD
-		local clip        = mechEnt:GetAmmoClip()
-		local reserve     = mechEnt:GetAmmoReserve()
-		local isReloading = mechEnt:GetIsReloading()
-		local reloadFrac  = 0
+		local ammoX = scrW * 0.6
+		local ammoY = scrH * 0.5
 
-		if isReloading then
-			local duration = MathMax(mechEnt:GetReloadDuration(), 0.01)
-			reloadFrac = MathClamp(1 - ((mechEnt:GetReloadEndTime() - CurTime()) / duration), 0, 1)
-		end
+		if isDisabled then
+			DrawSimpleTextOutlined("[WEAPON UNAVAILABLE]", "CombineHudText", ammoX * 1.065, ammoY, colours.red, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+		else
+			local clip        = mechEnt:GetAmmoClip()
+			local reserve     = mechEnt:GetAmmoReserve()
+			local isReloading = mechEnt:GetIsReloading()
+			local reloadFrac  = 0
 
-		local ammoX       = scrW * 0.6
-		local ammoY       = scrH * 0.5
-		local reserveText = (reserve == 0) and "∞" or tostring(reserve)
-		local ammoText    = StringFormat("%d / %s", clip, reserveText)
+			if isReloading then
+				local duration = MathMax(mechEnt:GetReloadDuration(), 0.01)
+				reloadFrac = MathClamp(1 - ((mechEnt:GetReloadEndTime() - CurTime()) / duration), 0, 1)
+			end
 
-		DrawSimpleTextOutlined("AMMO:", "CombineHudText", ammoX, ammoY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
-		DrawSimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+			local reserveText = (reserve == 0) and "∞" or tostring(reserve)
+			local ammoText    = StringFormat("%d / %s", clip, reserveText)
 
-		SurfaceSetFont("CombineHudText")
-		local ammoTextW, _ = SurfaceGetTextSize(ammoText)
+			DrawSimpleTextOutlined("AMMO:", "CombineHudText", ammoX, ammoY - fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+			DrawSimpleTextOutlined(ammoText, "CombineHudText", ammoX, ammoY + fontSize / 2, colours.combineBlue, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
 
-		if isReloading then
-			local reloadingBarW = scrW * 0.009
-			local reloadingBarH = fontSize * 2
-			DrawOutlinedBar(ammoX + ammoTextW / 1.5, ammoY + fontSize, reloadingBarH, reloadingBarW, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg, true)
-			DrawSimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX + ammoTextW + reloadingBarW * 2, ammoY, colours.heatWarning, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+			SurfaceSetFont("CombineHudText")
+			local ammoTextW, _ = SurfaceGetTextSize(ammoText)
+
+			if isReloading then
+				local reloadingBarW = scrW * 0.009
+				local reloadingBarH = fontSize * 2
+				DrawOutlinedBar(ammoX + ammoTextW / 1.5, ammoY + fontSize, reloadingBarH, reloadingBarW, reloadFrac, colours.heatWarning, colours.barBorder, colours.darkBg, true)
+				DrawSimpleTextOutlined("RELOADING", "CombineHudSmall", ammoX + ammoTextW + reloadingBarW * 2, ammoY, colours.heatWarning, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+			end
 		end
 
 		local barW         		 = scrW * 0.28
@@ -562,16 +578,23 @@ local function DrawHUD()
 		SurfaceSetDrawColour(255, 255, 255, 255)
 		SurfaceDrawTexturedRect(0, 0, consoleW, consoleH)
 
+		local nameColor = isDisabled and colours.red or colours.white
+		local iconColor = isDisabled and colours.red or colours.combineBlue
+
 		-- Weapon name label
 		local activeWepName = weaponNames[currentWeapon] or "Unknown"
-		DrawSimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, colours.white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		DrawSimpleText(activeWepName, "CombineHudText", scrW * 0.12, scrH * 0.067, nameColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 		-- Weapon icon
 		local iconTex = textures.weaponIcons[currentWeapon]
 		if iconTex then
 			SurfaceSetTexture(iconTex)
-			SurfaceSetDrawColour(combineBlueR, combineBlueG, combineBlueB, 255)
+			SurfaceSetDrawColour(iconColor.r, iconColor.g, iconColor.b, 255)
 			SurfaceDrawTexturedRect(scrW * 0.082, scrH * 0.11, scrW * 0.077, scrH * 0.122)
+
+			if isDisabled then
+				DrawSimpleTextOutlined("[DISABLED]", "CombineHudTextLarger", scrW * 0.082 + (scrW * 0.077 / 2), scrH * 0.11 + (scrH * 0.122 / 2), colours.red, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, outlineColour)
+			end
 		end
 
 		-- Weapon number row

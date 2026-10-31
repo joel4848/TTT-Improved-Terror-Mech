@@ -20,6 +20,53 @@ CreateConVar("ttt_improvedmech_shield_recharge_rate",  10, 	FCVAR_REPLICATED,  "
 CreateConVar("ttt_improvedmech_altitude_max", 20, FCVAR_REPLICATED, "Maximum flight altitude for the mech (metres)", 1, 999)
 CreateConVar("ttt_improvedmech_attack_while_flying", 1, FCVAR_REPLICATED, "Whether the mech can use its weapons while flying", 0, 1)
 
+-- Bits for convar creation
+local WEP_NAMES = {"turret", "screamer", "gravprobe", "grenade", "missile", "missilestorm"}
+
+local WEP_STAT_NAMES = {"clipsize", "totalammo", "reloadtime", "firedelay"}
+
+local WEP_DEFAULTS = {
+	turret       = {firedelay = 0.08, clipsize = 100, totalammo = 1000, reloadtime = 3},
+	screamer     = {firedelay = 1,    clipsize = 1,   totalammo = -1,   reloadtime = 15},
+	gravprobe    = {firedelay = 1,    clipsize = 1,   totalammo = -1,   reloadtime = 5},
+	grenade      = {firedelay = 1,    clipsize = 5,   totalammo = 40,   reloadtime = 4},
+	missile      = {firedelay = 1,    clipsize = 3,   totalammo = 30,   reloadtime = 5},
+	missilestorm = {firedelay = 5,    clipsize = 10,  totalammo = 30,   reloadtime = 10}
+}
+
+local WEP_MINS = {
+	turret       = {firedelay = 0.01, clipsize = 1, totalammo = -1, reloadtime = 0.1},
+	screamer     = {firedelay = 0.01, clipsize = 1, totalammo = -1, reloadtime = 0.1},
+	gravprobe    = {firedelay = 0.01, clipsize = 1, totalammo = -1, reloadtime = 0.1},
+	grenade      = {firedelay = 0.01, clipsize = 1, totalammo = -1, reloadtime = 0.1},
+	missile      = {firedelay = 0.01, clipsize = 1, totalammo = -1, reloadtime = 0.1},
+	missilestorm = {firedelay = 0.01, clipsize = 1, totalammo = -1, reloadtime = 0.1}
+}
+
+local WEP_MAXS = {
+	turret       = {firedelay = 10,  clipsize = 10000, totalammo = 10000, reloadtime = 60},
+	screamer     = {firedelay = 120, clipsize = 100,   totalammo = 10000, reloadtime = 60},
+	gravprobe    = {firedelay = 120, clipsize = 100,   totalammo = 10000, reloadtime = 60},
+	grenade      = {firedelay = 10,  clipsize = 500,   totalammo = 10000, reloadtime = 60},
+	missile      = {firedelay = 10,  clipsize = 500,   totalammo = 10000, reloadtime = 60},
+	missilestorm = {firedelay = 120, clipsize = 1000,  totalammo = 10000, reloadtime = 60}
+}
+
+local STAT_DESCRIPTIONS = {
+	firedelay  = "The delay (in seconds) between shots",
+	clipsize   = "The maximum ammo the weapon's magazine can hold",
+	totalammo  = "The total ammo the weapon has",
+	reloadtime = "How long (in seconds) the weapon takes to reload its magazine"
+}
+
+local convarPrefix = "ttt_improvedmech_"
+
+for _, wepName in ipairs(WEP_NAMES) do
+	for _, statName in ipairs(WEP_STAT_NAMES) do
+		CreateConVar(convarPrefix .. wepName .. "_" .. statName, WEP_DEFAULTS[wepName][statName], FCVAR_REPLICATED, STAT_DESCRIPTIONS[statName], WEP_MINS[wepName][statName], WEP_MAXS[wepName][statName])
+	end
+end
+
 function ENT:SetupDataTables()
 	self:NetworkVar("Int",   0, "MechHealthAmount")
 	self:NetworkVar("Int",   1, "MechHealthPercentage")

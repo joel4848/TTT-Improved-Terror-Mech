@@ -14,52 +14,16 @@ local MathMax    = math.max
 local MathMin    = math.min
 local MathRandom = math.random
 
--- Bits for convar creation
 local WEP_NAMES = {"turret", "screamer", "gravprobe", "grenade", "missile", "missilestorm"}
-
-local WEP_STAT_NAMES = {"clipsize", "totalammo", "reloadtime", "firedelay"}
 
 local WEP_DEFAULTS = {
 	turret       = {firedelay = 0.08, clipsize = 100, totalammo = 1000, reloadtime = 3},
-	screamer     = {firedelay = 1,    clipsize = 1,   totalammo = 0,    reloadtime = 15},
-	gravprobe    = {firedelay = 1,    clipsize = 1,   totalammo = 0,    reloadtime = 5},
+	screamer     = {firedelay = 1,    clipsize = 1,   totalammo = -1,   reloadtime = 15},
+	gravprobe    = {firedelay = 1,    clipsize = 1,   totalammo = -1,   reloadtime = 5},
 	grenade      = {firedelay = 1,    clipsize = 5,   totalammo = 40,   reloadtime = 4},
 	missile      = {firedelay = 1,    clipsize = 3,   totalammo = 30,   reloadtime = 5},
 	missilestorm = {firedelay = 5,    clipsize = 10,  totalammo = 30,   reloadtime = 10}
 }
-
-local WEP_MINS = {
-	turret       = {firedelay = 0.01, clipsize = 1, totalammo = 0, reloadtime = 0.1},
-	screamer     = {firedelay = 0.01, clipsize = 1, totalammo = 0, reloadtime = 0.1},
-	gravprobe    = {firedelay = 0.01, clipsize = 1, totalammo = 0, reloadtime = 0.1},
-	grenade      = {firedelay = 0.01, clipsize = 1, totalammo = 0, reloadtime = 0.1},
-	missile      = {firedelay = 0.01, clipsize = 1, totalammo = 0, reloadtime = 0.1},
-	missilestorm = {firedelay = 0.01, clipsize = 1, totalammo = 0, reloadtime = 0.1}
-}
-
-local WEP_MAXS = {
-	turret       = {firedelay = 10,  clipsize = 10000, totalammo = 10000, reloadtime = 60},
-	screamer     = {firedelay = 120, clipsize = 100,   totalammo = 10000, reloadtime = 60},
-	gravprobe    = {firedelay = 120, clipsize = 100,   totalammo = 10000, reloadtime = 60},
-	grenade      = {firedelay = 10,  clipsize = 500,   totalammo = 10000, reloadtime = 60},
-	missile      = {firedelay = 10,  clipsize = 500,   totalammo = 10000, reloadtime = 60},
-	missilestorm = {firedelay = 120, clipsize = 1000,  totalammo = 10000, reloadtime = 60}
-}
-
-local STAT_DESCRIPTIONS = {
-	firedelay  = "The delay (in seconds) between shots",
-	clipsize   = "The maximum ammo the weapon's magazine can hold",
-	totalammo  = "The total ammo the weapon has",
-	reloadtime = "How long (in seconds) the weapon takes to reload its magazine"
-}
-
-local convarPrefix = "ttt_improvedmech_"
-
-for _, wepName in ipairs(WEP_NAMES) do
-	for _, statName in ipairs(WEP_STAT_NAMES) do
-		CreateConVar(convarPrefix .. wepName .. "_" .. statName, WEP_DEFAULTS[wepName][statName], FCVAR_NONE, STAT_DESCRIPTIONS[statName], WEP_MINS[wepName][statName], WEP_MAXS[wepName][statName])
-	end
-end
 
 -- Get weapon stat convar value or fallback value
 function ENT:GetWeaponStat(wepID, statName)
@@ -388,6 +352,9 @@ function ENT:StartReload(wepType)
 	local clipSize 	= self:GetWeaponStat(wepType, "clipsize")
 	local totalAmmo = self:GetWeaponStat(wepType, "totalammo")
 
+	-- Disabled weapons cannot reload
+	if totalAmmo == 0 then return end
+
 	-- Don't reload if clip is full/no reserve left
 	if wepState.clip >= clipSize then return end
 	if totalAmmo > 0 and wepState.reserve <= 0 then return end
@@ -409,10 +376,10 @@ function ENT:FinishReload(wepType)
 	local totalAmmo = self:GetWeaponStat(wepType, "totalammo")
 	local needed    = clipSize - wepState.clip
 
-	if totalAmmo == 0 then
+	if totalAmmo == -1 then
 		-- Infinite reserve
 		wepState.clip = clipSize
-	else
+	elseif totalAmmo > 0 then
 		-- Non-infinite reserve
 		local taken      = MathMin(needed, wepState.reserve)
 		wepState.reserve = wepState.reserve - taken
@@ -835,7 +802,7 @@ function ENT:PhysicsUpdate(physics)
 
 			-- Attacking
 			if self.User:KeyDown(IN_ATTACK) and (GetConVar("ttt_improvedmech_attack_while_flying"):GetBool() or not self.IsFlying) and IsValid(self.KeepUpRightCon) then
-				if not wepState.isReloading and curTime >= wepState.nextFire then
+				if self:GetWeaponStat(self.WepType, "totalammo") ~= 0 and not wepState.isReloading and curTime >= wepState.nextFire then
 					if wepState.clip > 0 then
 
 						-- Turret
